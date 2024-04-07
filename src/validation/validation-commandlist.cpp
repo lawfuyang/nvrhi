@@ -611,6 +611,13 @@ namespace nvrhi::validation
             anyErrors = true;
         }
 
+        // [rlaw]: added indirect count params
+        if (state.indirectCountBuffer && !state.indirectCountBuffer->getDesc().isDrawIndirectArgs)
+        {
+            ss << "Cannot use buffer '" << utils::DebugNameToString(state.indirectCountBuffer->getDesc().debugName) << "' as a DrawIndirect argument buffer because it does not have the isDrawIndirectArgs flag set." << std::endl;
+            anyErrors = true;
+        }
+
         if (anyErrors)
         {
             error(ss.str());

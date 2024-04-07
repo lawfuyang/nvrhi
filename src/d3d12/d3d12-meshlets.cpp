@@ -221,12 +221,13 @@ namespace nvrhi::d3d12
 
         const bool updatePipeline = !m_CurrentMeshletStateValid || m_CurrentMeshletState.pipeline != state.pipeline;
         const bool updateIndirectParams = !m_CurrentMeshletStateValid || m_CurrentMeshletState.indirectParams != state.indirectParams;
+        const bool updateIndirectCountParam = !m_CurrentGraphicsStateValid || (m_CurrentMeshletState.indirectCountBuffer != state.indirectCountBuffer); // [rlaw]
 
         const bool updateViewports = !m_CurrentMeshletStateValid ||
             arraysAreDifferent(m_CurrentMeshletState.viewport.viewports, state.viewport.viewports) ||
             arraysAreDifferent(m_CurrentMeshletState.viewport.scissorRects, state.viewport.scissorRects);
 
-        const bool updateBlendFactor = !m_CurrentMeshletStateValid || m_CurrentMeshletState.blendConstantColor != state.blendConstantColor;
+        const bool updateBlendFactor = !m_CurrentGraphicsStateValid || m_CurrentGraphicsState.blendConstantColor != state.blendConstantColor;
 
         const uint8_t effectiveStencilRefValue = pso->desc.renderState.depthStencilState.dynamicStencilRef
             ? state.dynamicStencilRefValue
@@ -265,7 +266,8 @@ namespace nvrhi::d3d12
             m_Instance->referencedResources.push_back(framebuffer);
         }
 
-        setGraphicsBindings(state.bindings, bindingUpdateMask, state.indirectParams, updateIndirectParams, pso->rootSignature);
+        // [rlaw]: added indirect count params
+        setGraphicsBindings(state.bindings, bindingUpdateMask, state.indirectParams, updateIndirectParams, state.indirectCountBuffer, updateIndirectCountParam, pso->rootSignature);
         
         commitBarriers();
 
@@ -291,7 +293,6 @@ namespace nvrhi::d3d12
         m_CurrentMeshletStateValid = true;
         m_CurrentRayTracingStateValid = false;
         m_CurrentMeshletState = state;
-        m_CurrentMeshletState.dynamicStencilRefValue = effectiveStencilRefValue;
     }
 
     void CommandList::dispatchMesh(uint32_t groupsX, uint32_t groupsY /*= 1*/, uint32_t groupsZ /*= 1*/)

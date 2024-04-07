@@ -430,7 +430,7 @@ namespace nvrhi
         // If keepInitialState is true, command lists that use the texture will automatically
         // begin tracking the texture from the initial state and transition it to the initial state 
         // on command list close.
-        bool keepInitialState = false;
+        bool keepInitialState = true; // [rlaw]: change default value to 'true'
 
         constexpr TextureDesc& setWidth(uint32_t value) { width = value; return *this; }
         constexpr TextureDesc& setHeight(uint32_t value) { height = value; return *this; }
@@ -607,7 +607,7 @@ namespace nvrhi
         ResourceStates initialState = ResourceStates::Common;
 
         // see TextureDesc::keepInitialState
-        bool keepInitialState = false;
+        bool keepInitialState = true; // [rlaw]: change default value to 'true'
 
         CpuAccessMode cpuAccess = CpuAccessMode::None;
 
@@ -2229,6 +2229,7 @@ namespace nvrhi
         IndexBufferBinding indexBuffer;
 
         IBuffer* indirectParams = nullptr;
+        IBuffer* indirectCountBuffer = nullptr; // [rlaw]
 
         GraphicsState& setPipeline(IGraphicsPipeline* value) { pipeline = value; return *this; }
         GraphicsState& setFramebuffer(IFramebuffer* value) { framebuffer = value; return *this; }
@@ -2292,6 +2293,7 @@ namespace nvrhi
         BindingSetVector bindings;
 
         IBuffer* indirectParams = nullptr;
+        IBuffer* indirectCountBuffer = nullptr; // [rlaw]
 
         ComputeState& setPipeline(IComputePipeline* value) { pipeline = value; return *this; }
         ComputeState& addBindingSet(IBindingSet* value) { bindings.push_back(value); return *this; }
@@ -2309,6 +2311,7 @@ namespace nvrhi
         BindingSetVector bindings;
 
         IBuffer* indirectParams = nullptr;
+        IBuffer* indirectCountBuffer = nullptr; // [rlaw]
 
         MeshletState& setPipeline(IMeshletPipeline* value) { pipeline = value; return *this; }
         MeshletState& setFramebuffer(IFramebuffer* value) { framebuffer = value; return *this; }
@@ -2621,6 +2624,8 @@ namespace nvrhi
         // Returns the owning device, does NOT call AddRef on it
         virtual IDevice* getDevice() = 0;
         virtual const CommandListParameters& getDesc() = 0;
+
+        uint64_t m_GPULog = ULLONG_MAX; // [rlaw]
     };
 
     typedef RefCountPtr<ICommandList> CommandListHandle;

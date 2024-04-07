@@ -977,9 +977,11 @@ namespace nvrhi::d3d12
         }
     }
 
+    // [rlaw]: added indirect count params
     void CommandList::setGraphicsBindings(
         const BindingSetVector& bindings, uint32_t bindingUpdateMask,
         IBuffer* indirectParams, bool updateIndirectParams,
+        IBuffer* indirectCountParam, bool updateIndirectCountParam,
         const RootSignature* rootSignature)
     {
         if (bindingUpdateMask)
@@ -1093,6 +1095,16 @@ namespace nvrhi::d3d12
                 requireBufferState(indirectParams, ResourceStates::IndirectArgument);
             }
             m_Instance->referencedResources.push_back(indirectParams);
+        }
+
+        // [rlaw]: added indirect count params
+        if (indirectCountParam && updateIndirectCountParam)
+        {
+            if (m_EnableAutomaticBarriers)
+            {
+                requireBufferState(indirectCountParam, ResourceStates::IndirectArgument);
+            }
+            m_Instance->referencedResources.push_back(indirectCountParam);
         }
 
         uint32_t bindingMask = (1 << uint32_t(bindings.size())) - 1;

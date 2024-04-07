@@ -295,6 +295,7 @@ namespace nvrhi::d3d12
 
         const bool updatePipeline = !m_CurrentGraphicsStateValid || m_CurrentGraphicsState.pipeline != state.pipeline;
         const bool updateIndirectParams = !m_CurrentGraphicsStateValid || m_CurrentGraphicsState.indirectParams != state.indirectParams;
+        const bool updateIndirectCountParam = !m_CurrentGraphicsStateValid || (m_CurrentGraphicsState.indirectCountBuffer != state.indirectCountBuffer); // [rlaw]
 
         const bool updateViewports = !m_CurrentGraphicsStateValid ||
             arraysAreDifferent(m_CurrentGraphicsState.viewport.viewports, state.viewport.viewports) ||
@@ -344,7 +345,8 @@ namespace nvrhi::d3d12
             m_Instance->referencedResources.push_back(framebuffer);
         }
 
-        setGraphicsBindings(state.bindings, bindingUpdateMask, state.indirectParams, updateIndirectParams, pso->rootSignature);
+        // [rlaw]: added indirect count params
+        setGraphicsBindings(state.bindings, bindingUpdateMask, state.indirectParams, updateIndirectParams, state.indirectCountBuffer, updateIndirectCountParam, pso->rootSignature);
 
         if (updateIndexBuffer)
         {
@@ -485,7 +487,6 @@ namespace nvrhi::d3d12
         m_CurrentMeshletStateValid = false;
         m_CurrentRayTracingStateValid = false;
         m_CurrentGraphicsState = state;
-        m_CurrentGraphicsState.dynamicStencilRefValue = effectiveStencilRefValue;
     }
 
     void CommandList::unbindShadingRateState()
@@ -554,9 +555,12 @@ namespace nvrhi::d3d12
         Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectParams);
         assert(indirectParams); // validation layer handles this
 
+        Buffer* indirectCountBuffer = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectCountBuffer); // [rlaw]
+
         updateGraphicsVolatileBuffers();
 
-        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.drawIndirectSignature, drawCount, indirectParams->resource, offsetBytes, nullptr, 0);
+        // [rlaw]: added indirect count params
+        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.drawIndirectSignature, drawCount, indirectParams->resource, offsetBytes, indirectCountBuffer ? indirectCountBuffer->resource : nullptr, 0);
     }
 
     void CommandList::drawIndexedIndirect(uint32_t offsetBytes, uint32_t drawCount)
@@ -564,9 +568,12 @@ namespace nvrhi::d3d12
         Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectParams);
         assert(indirectParams);
 
+        Buffer* indirectCountBuffer = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectCountBuffer); // [rlaw]
+
         updateGraphicsVolatileBuffers();
 
-        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.drawIndexedIndirectSignature, drawCount, indirectParams->resource, offsetBytes, nullptr, 0);
+        // [rlaw]: added indirect count params
+        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.drawIndexedIndirectSignature, drawCount, indirectParams->resource, offsetBytes, indirectCountBuffer ? indirectCountBuffer->resource : nullptr, 0);
     }
     
     DX12_ViewportState convertViewportState(const RasterState& rasterState, const FramebufferInfoEx& framebufferInfo, const ViewportState& vpState)
