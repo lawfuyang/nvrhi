@@ -46,7 +46,10 @@ namespace nvrhi::d3d12
             // If it's not, wait for it to finish using an event
             ResetEvent(event);
             fence->SetEventOnCompletion(value, event);
-            WaitForSingleObject(event, INFINITE);
+			
+            // [rlaw]: add 1 second time out
+            const DWORD result = WaitForSingleObject(event, 1000);
+            assert(result == WAIT_OBJECT_0);
         }
     }
 
