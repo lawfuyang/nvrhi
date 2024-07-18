@@ -700,7 +700,7 @@ namespace nvrhi::validation
         m_CommandList->drawIndexed(args);
     }
 
-    void CommandListWrapper::drawIndirect(uint32_t offsetBytes, uint32_t drawCount)
+    void CommandListWrapper::drawIndirect(uint32_t offsetBytes, uint32_t drawCount, uint32_t countBufferOffsetBytes) // [rlaw]: added countBufferOffsetBytes
     {
         if (!requireOpenState())
             return;
@@ -727,7 +727,7 @@ namespace nvrhi::validation
         m_CommandList->drawIndirect(offsetBytes, drawCount);
     }
 
-    void CommandListWrapper::drawIndexedIndirect(uint32_t offsetBytes, uint32_t drawCount)
+    void CommandListWrapper::drawIndexedIndirect(uint32_t offsetBytes, uint32_t drawCount, uint32_t countBufferOffsetBytes) // [rlaw]: added countBufferOffsetBytes
     {
         if (!requireOpenState())
             return;
@@ -849,14 +849,6 @@ namespace nvrhi::validation
 
         if (!validatePushConstants("compute", "setComputeState"))
             return;
-
-        // [rlaw] BEGIN: added countBufferOffsetBytes
-        if (!m_CurrentComputeState.indirectCountBuffer && countBufferOffsetBytes > 0)
-        {
-            error("Indirect count buffer is not set but countBufferOffsetBytes is non-zero");
-            return;
-        }
-        // [rlaw] END
 
         m_CommandList->dispatchIndirect(offsetBytes, countBufferOffsetBytes);
     }
