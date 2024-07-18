@@ -2555,7 +2555,7 @@ namespace nvrhi
         
         virtual void setComputeState(const ComputeState& state) = 0;
         virtual void dispatch(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) = 0;
-        virtual void dispatchIndirect(uint32_t offsetBytes) = 0;
+        virtual void dispatchIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes = 0) = 0; // [rlaw]: added countBufferOffsetBytes
 
         virtual void setMeshletState(const MeshletState& state) = 0;
         virtual void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) = 0;

@@ -169,7 +169,7 @@ namespace nvrhi::d3d12
         m_ActiveCommandList->commandList->Dispatch(groupsX, groupsY, groupsZ);
     }
 
-    void CommandList::dispatchIndirect(uint32_t offsetBytes)
+    void CommandList::dispatchIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes) // [rlaw]: added countBufferOffsetBytes
     {
         Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentComputeState.indirectParams);
         assert(indirectParams); // validation layer handles this
@@ -178,8 +178,8 @@ namespace nvrhi::d3d12
 
         updateComputeVolatileBuffers();
 
-        // [rlaw]: added indirect count params
-        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchIndirectSignature, 1, indirectParams->resource, offsetBytes, indirectCountBuffer ? indirectCountBuffer->resource : nullptr, 0);
+        // [rlaw]: added indirect count params & countBufferOffsetBytes
+        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchIndirectSignature, 1, indirectParams->resource, offsetBytes, indirectCountBuffer ? indirectCountBuffer->resource : nullptr, countBufferOffsetBytes);
     }
 
 } // namespace nvrhi::d3d12

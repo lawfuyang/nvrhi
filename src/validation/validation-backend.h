@@ -174,7 +174,7 @@ namespace nvrhi::validation
 
         void setComputeState(const ComputeState& state) override;
         void dispatch(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;
-        void dispatchIndirect(uint32_t offsetBytes)  override;
+        void dispatchIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes = 0)  override; // [rlaw]: added countBufferOffsetBytes
 
         void setMeshletState(const MeshletState& state) override;
         void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;

@@ -826,7 +826,7 @@ namespace nvrhi::validation
         m_CommandList->dispatch(groupsX, groupsY, groupsZ);
     }
 
-    void CommandListWrapper::dispatchIndirect(uint32_t offsetBytes)
+    void CommandListWrapper::dispatchIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes) // [rlaw]: added countBufferOffsetBytes
     {
         if (!requireOpenState())
             return;
@@ -850,7 +850,15 @@ namespace nvrhi::validation
         if (!validatePushConstants("compute", "setComputeState"))
             return;
 
-        m_CommandList->dispatchIndirect(offsetBytes);
+        // [rlaw] BEGIN: added countBufferOffsetBytes
+        if (!m_CurrentComputeState.indirectCountBuffer && countBufferOffsetBytes > 0)
+        {
+            error("Indirect count buffer is not set but countBufferOffsetBytes is non-zero");
+            return;
+        }
+        // [rlaw] END
+
+        m_CommandList->dispatchIndirect(offsetBytes, countBufferOffsetBytes);
     }
 
     void CommandListWrapper::setMeshletState(const MeshletState& state)
