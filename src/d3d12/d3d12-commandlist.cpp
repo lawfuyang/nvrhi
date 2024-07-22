@@ -98,6 +98,11 @@ namespace nvrhi::d3d12
 
     bool CommandList::commitDescriptorHeaps()
     {
+        // [rlaw] BEGIN: another thread can be reallocating the internal heaps
+        std::lock_guard shaderResourceViewHeapLockGuard(m_Resources.shaderResourceViewHeap.m_Mutex);
+        std::lock_guard samplerHeapLockGuard(m_Resources.samplerHeap.m_Mutex);
+        // [rlaw] END
+
         ID3D12DescriptorHeap* heapSRVetc = m_Resources.shaderResourceViewHeap.getShaderVisibleHeap();
         ID3D12DescriptorHeap* heapSamplers = m_Resources.samplerHeap.getShaderVisibleHeap();
 

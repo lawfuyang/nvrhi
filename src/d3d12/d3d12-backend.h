@@ -148,6 +148,8 @@ namespace nvrhi::d3d12
         D3D12_GPU_DESCRIPTOR_HANDLE getGpuHandle(DescriptorIndex index) override;
         [[nodiscard]] ID3D12DescriptorHeap* getHeap() const override;
         [[nodiscard]] ID3D12DescriptorHeap* getShaderVisibleHeap() const override;
+
+        friend class CommandList; // [rlaw]: CommandList needs to access m_Mutex
     };
 
     class DeviceResources
