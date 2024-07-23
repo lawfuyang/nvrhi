@@ -93,6 +93,16 @@ namespace nvrhi::d3d12
         m_Context.device = desc.pDevice;
         m_Context.messageCallback = desc.errorCB;
 
+        // [rlaw] BEGIN
+        for (uint32_t i = DXGI_FORMAT_R32G32B32A32_TYPELESS; i <= DXGI_FORMAT_BC7_UNORM_SRGB; ++i)
+        {
+            m_Resources.getFormatPlaneCount(DXGI_FORMAT(i));
+        }
+
+        m_Resources.getFormatPlaneCount(DXGI_FORMAT_SAMPLER_FEEDBACK_MIN_MIP_OPAQUE);
+        m_Resources.getFormatPlaneCount(DXGI_FORMAT_SAMPLER_FEEDBACK_MIP_REGION_USED_OPAQUE);
+        // [rlaw] END
+
         if (desc.pGraphicsCommandQueue)
             m_Queues[int(CommandQueue::Graphics)] = std::make_unique<Queue>(m_Context, desc.pGraphicsCommandQueue);
         if (desc.pComputeCommandQueue)
