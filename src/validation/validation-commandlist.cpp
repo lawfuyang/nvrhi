@@ -724,7 +724,7 @@ namespace nvrhi::validation
         if (!validatePushConstants("graphics", "setGraphicsState"))
             return;
 
-        m_CommandList->drawIndirect(offsetBytes, drawCount);
+        m_CommandList->drawIndirect(offsetBytes, drawCount, countBufferOffsetBytes); // [rlaw]: added countBufferOffsetBytes
     }
 
     void CommandListWrapper::drawIndexedIndirect(uint32_t offsetBytes, uint32_t drawCount, uint32_t countBufferOffsetBytes) // [rlaw]: added countBufferOffsetBytes
@@ -751,7 +751,7 @@ namespace nvrhi::validation
         if (!validatePushConstants("graphics", "setGraphicsState"))
             return;
 
-        m_CommandList->drawIndexedIndirect(offsetBytes, drawCount);
+        m_CommandList->drawIndexedIndirect(offsetBytes, drawCount, countBufferOffsetBytes); // [rlaw]: added countBufferOffsetBytes
     }
 
     void CommandListWrapper::setComputeState(const ComputeState& state)
