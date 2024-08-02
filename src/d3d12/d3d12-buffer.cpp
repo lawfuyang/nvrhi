@@ -50,6 +50,16 @@ namespace nvrhi::d3d12
             m_Resources.shaderResourceViewHeap.releaseDescriptor(m_ClearUAV);
             m_ClearUAV = c_InvalidDescriptorIndex;
         }
+
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        if (m_Allocation)
+        {
+            m_Allocation->Release();
+            m_Allocation = nullptr;
+        }
+    #endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
+    // [rlaw] END
     }
 
     BufferHandle Device::createBuffer(const BufferDesc& d)
@@ -122,6 +132,23 @@ namespace nvrhi::d3d12
                 break;
         }
 
+    // [rlaw]: D3D12MA
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        D3D12MA::ALLOCATION_DESC allocDesc{};
+        allocDesc.Flags = D3D12MA::ALLOCATION_FLAG_WITHIN_BUDGET;
+        allocDesc.HeapType = heapProps.Type;
+        allocDesc.ExtraHeapFlags = heapFlags;
+
+        assert(m_Allocator);
+        HRESULT res = m_Allocator->CreateResource(
+            &allocDesc,
+            &resourceDesc,
+            convertResourceStates(d.initialState),
+            nullptr,
+            &buffer->m_Allocation,
+            IID_PPV_ARGS(&buffer->resource));
+
+    #else // NVRHI_D3D12_WITH_D3D12MA
         HRESULT res = m_Context.device->CreateCommittedResource(
             &heapProps,
             heapFlags,
@@ -129,6 +156,7 @@ namespace nvrhi::d3d12
             initialState,
             nullptr,
             IID_PPV_ARGS(&buffer->resource));
+    #endif // NVRHI_D3D12_WITH_D3D12MA
 
         if (FAILED(res))
         {
@@ -176,6 +204,15 @@ namespace nvrhi::d3d12
         {
             std::wstring wname(desc.debugName.begin(), desc.debugName.end());
             resource->SetName(wname.c_str());
+
+        // [rlaw] BEGIN
+        #ifdef NVRHI_D3D12_WITH_D3D12MA
+            if (m_Allocation)
+            {
+                m_Allocation->SetName(wname.c_str());
+            }
+        #endif
+        // [rlaw] END
         }
     }
 

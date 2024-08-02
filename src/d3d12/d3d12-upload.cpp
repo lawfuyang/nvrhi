@@ -27,6 +27,11 @@
 
 namespace nvrhi::d3d12
 {
+// [rlaw] BEGIN
+#ifdef NVRHI_D3D12_WITH_D3D12MA
+    extern D3D12MA::Allocator* g_D3D12MAAllocator;
+#endif
+// [rlaw] END
 
     BufferChunk::~BufferChunk()
     {
@@ -35,6 +40,16 @@ namespace nvrhi::d3d12
             buffer->Unmap(0, nullptr);
             cpuVA = nullptr;
         }
+
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        if (m_Allocation)
+        {
+            m_Allocation->Release();
+            m_Allocation = nullptr;
+        }
+    #endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
+    // [rlaw] END
     }
     
     UploadManager::UploadManager(const Context& context, class Queue* pQueue, size_t defaultChunkSize, uint64_t memoryLimit, bool isScratchBuffer)
@@ -66,6 +81,21 @@ namespace nvrhi::d3d12
         bufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         if (m_IsScratchBuffer) bufferDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
+    // [rlaw]: D3D12MA
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        D3D12MA::ALLOCATION_DESC allocDesc{};
+        allocDesc.Flags = D3D12MA::ALLOCATION_FLAG_WITHIN_BUDGET;
+        allocDesc.HeapType = heapProps.Type;
+
+        assert(g_D3D12MAAllocator);
+        HRESULT hr = g_D3D12MAAllocator->CreateResource(
+            &allocDesc,
+            &bufferDesc,
+            m_IsScratchBuffer ? D3D12_RESOURCE_STATE_COMMON : D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            &chunk->m_Allocation,
+            IID_PPV_ARGS(&chunk->buffer));
+    #else // #ifdef NVRHI_D3D12_WITH_D3D12MA
         HRESULT hr = m_Context.device->CreateCommittedResource(
             &heapProps,
             D3D12_HEAP_FLAG_NONE,
@@ -73,6 +103,7 @@ namespace nvrhi::d3d12
             m_IsScratchBuffer ? D3D12_RESOURCE_STATE_COMMON: D3D12_RESOURCE_STATE_GENERIC_READ,
             nullptr,
             IID_PPV_ARGS(&chunk->buffer));
+    #endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
 
         if (FAILED(hr))
             return nullptr;
@@ -95,6 +126,12 @@ namespace nvrhi::d3d12
         else
             wss << L"Upload Buffer " << chunk->identifier;
         chunk->buffer->SetName(wss.str().c_str());
+
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        chunk->m_Allocation->SetName(wss.str().c_str());
+    #endif
+    // [rlaw] END
 
         return chunk;
     }

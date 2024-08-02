@@ -33,6 +33,12 @@
 
 namespace nvrhi::d3d12
 {
+// [rlaw] BEGIN
+#ifdef NVRHI_D3D12_WITH_D3D12MA
+    D3D12MA::Allocator* g_D3D12MAAllocator;
+#endif
+// [rlaw] END
+
     void Context::error(const std::string& message) const
     {
         messageCallback->message(MessageSeverity::Error, message.c_str());
@@ -221,6 +227,25 @@ namespace nvrhi::d3d12
 #endif // #if NVRHI_WITH_NVAPI_OPACITY_MICROMAPS
 
 #endif // #if NVRHI_D3D12_WITH_NVAPI
+
+
+// [rlaw] BEGIN
+#ifdef NVRHI_D3D12_WITH_D3D12MA
+        D3D12MA::ALLOCATOR_DESC allocatorDesc{};
+        allocatorDesc.Flags = D3D12MA::ALLOCATOR_FLAG_DEFAULT_POOLS_NOT_ZEROED;
+        allocatorDesc.pDevice = m_Context.device.Get();
+
+        extern IDXGIAdapter1* g_DXGIAdapter;
+        assert(g_DXGIAdapter);
+        allocatorDesc.pAdapter = g_DXGIAdapter;
+
+        const bool bResult = SUCCEEDED(D3D12MA::CreateAllocator(&allocatorDesc, &m_Allocator));
+        assert(bResult);
+        assert(m_Allocator);
+
+        g_D3D12MAAllocator = m_Allocator;
+#endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
+// [rlaw] END
     }
 
     Device::~Device()
@@ -232,6 +257,15 @@ namespace nvrhi::d3d12
             CloseHandle(m_FenceEvent);
             m_FenceEvent = nullptr;
         }
+
+// [rlaw] BEGIN
+#ifdef NVRHI_D3D12_WITH_D3D12MA
+        m_Context.timerQueryResolveBuffer.Reset();
+
+        assert(m_Allocator);
+        m_Allocator->Release();
+#endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
+// [rlaw] END
     }
 
     void Device::waitForIdle()

@@ -153,6 +153,16 @@ namespace nvrhi::d3d12
 
         for (auto pair : m_CustomUAVs)
             m_Resources.shaderResourceViewHeap.releaseDescriptor(pair.second);
+
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        if (m_Allocation)
+        {
+            m_Allocation->Release();
+            m_Allocation = nullptr;
+        }
+    #endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
+    // [rlaw] END
     }
 
     StagingTexture::SliceRegion StagingTexture::getSliceRegion(ID3D12Device *device, const TextureSlice& slice)
@@ -324,6 +334,23 @@ namespace nvrhi::d3d12
 
         D3D12_CLEAR_VALUE clearValue = convertTextureClearValue(d);
 
+    // [rlaw]: D3D12MA
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        D3D12MA::ALLOCATION_DESC allocDesc{};
+        allocDesc.Flags = D3D12MA::ALLOCATION_FLAG_WITHIN_BUDGET;
+        allocDesc.HeapType = heapProps.Type;
+        allocDesc.ExtraHeapFlags = heapFlags;
+
+        assert(m_Allocator);
+        HRESULT hr = m_Allocator->CreateResource(
+            &allocDesc,
+            &texture->resourceDesc,
+            convertResourceStates(d.initialState),
+            d.useClearValue ? &clearValue : nullptr,
+            &texture->m_Allocation,
+            IID_PPV_ARGS(&texture->resource));
+
+    #else // #ifdef NVRHI_D3D12_WITH_D3D12MA
         HRESULT hr = m_Context.device->CreateCommittedResource(
             &heapProps,
             heapFlags,
@@ -331,6 +358,7 @@ namespace nvrhi::d3d12
             convertResourceStates(d.initialState),
             d.useClearValue ? &clearValue : nullptr,
             IID_PPV_ARGS(&texture->resource));
+    #endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
 
         if (FAILED(hr))
         {
@@ -444,6 +472,15 @@ namespace nvrhi::d3d12
         {
             std::wstring wname(desc.debugName.begin(), desc.debugName.end());
             resource->SetName(wname.c_str());
+
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+            if (m_Allocation)
+            {
+                m_Allocation->SetName(wname.c_str());
+            }
+    #endif
+    // [rlaw] END
         }
 
         if (desc.isUAV)

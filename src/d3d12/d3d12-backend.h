@@ -66,6 +66,12 @@
 #include <rtxmu/D3D12AccelStructManager.h>
 #endif
 
+// [rlaw] BEGIN
+#ifdef NVRHI_D3D12_WITH_D3D12MA
+#include <extern/d3d12ma/D3D12MemAlloc.h>
+#endif
+// [rlaw] END
+
 namespace nvrhi::d3d12
 {
     class RootSignature;
@@ -240,6 +246,12 @@ namespace nvrhi::d3d12
         HANDLE sharedHandle = nullptr;
         HeapHandle heap;
 
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        D3D12MA::Allocation* m_Allocation = nullptr;
+    #endif
+    // [rlaw] END
+
         Texture(const Context& context, DeviceResources& resources, TextureDesc desc, const D3D12_RESOURCE_DESC& resourceDesc)
             : TextureStateExtension(this->desc)
             , desc(std::move(desc))
@@ -288,6 +300,12 @@ namespace nvrhi::d3d12
         RefCountPtr<ID3D12Fence> lastUseFence;
         uint64_t lastUseFenceValue = 0;
         HANDLE sharedHandle = nullptr;
+
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        D3D12MA::Allocation* m_Allocation = nullptr;
+    #endif
+    // [rlaw] END
 
         Buffer(const Context& context, DeviceResources& resources, BufferDesc desc)
             : BufferStateExtension(this->desc)
@@ -645,6 +663,12 @@ namespace nvrhi::d3d12
         void* cpuVA = nullptr;
         D3D12_GPU_VIRTUAL_ADDRESS gpuVA = 0;
         uint32_t identifier = 0;
+
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        D3D12MA::Allocation* m_Allocation = nullptr;
+    #endif
+    // [rlaw] END
 
         ~BufferChunk();
     };
@@ -1160,6 +1184,12 @@ namespace nvrhi::d3d12
         RefCountPtr<ID3D12PipelineState> createPipelineState(const GraphicsPipelineDesc& desc, RootSignature* pRS, const FramebufferInfo& fbinfo) const;
         RefCountPtr<ID3D12PipelineState> createPipelineState(const ComputePipelineDesc& desc, RootSignature* pRS) const;
         RefCountPtr<ID3D12PipelineState> createPipelineState(const MeshletPipelineDesc& desc, RootSignature* pRS, const FramebufferInfo& fbinfo) const;
+
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        D3D12MA::Allocator* m_Allocator = nullptr;
+    #endif
+    // [rlaw] END
     };
 
 } // namespace nvrhi::d3d12

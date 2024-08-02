@@ -96,6 +96,7 @@ namespace nvrhi::d3d12
         if (layout->descriptorTableSizeSamplers > 0)
         {
             DescriptorIndex descriptorTableBaseIndex = m_Resources.samplerHeap.allocateDescriptors(layout->descriptorTableSizeSamplers);
+
             descriptorTableSamplers = descriptorTableBaseIndex;
             rootParameterIndexSamplers = layout->rootParameterSamplers;
             descriptorTableValidSamplers = true;

@@ -106,6 +106,8 @@ namespace nvrhi::d3d12
                 BufferDesc qbDesc;
                 qbDesc.byteSize = queryHeapDesc.Count * 8;
                 qbDesc.cpuAccess = CpuAccessMode::Read;
+                
+                qbDesc.debugName = "TimerQueryResolveBuffer"; // [rlaw]
 
                 BufferHandle timerQueryBuffer = createBuffer(qbDesc);
                 m_Context.timerQueryResolveBuffer = checked_cast<Buffer*>(timerQueryBuffer.Get());
