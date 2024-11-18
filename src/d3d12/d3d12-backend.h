@@ -73,7 +73,7 @@
 
 // [rlaw] BEGIN
 #ifdef NVRHI_D3D12_WITH_D3D12MA
-#include <extern/d3d12ma/D3D12MemAlloc.h>
+#include <extern/d3d12ma/include/D3D12MemAlloc.h>
 #endif
 // [rlaw] END
 
