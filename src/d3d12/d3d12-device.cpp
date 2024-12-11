@@ -776,6 +776,13 @@ namespace nvrhi::d3d12
         Heap* heap = new Heap();
         heap->heap = d3dHeap;
         heap->desc = d;
+
+        // [rlaw] BEGIN
+#ifdef NVRHI_D3D12_WITH_D3D12MA
+        heap->m_Allocation = allocation;
+#endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
+        // [rlaw] END
+
         return HeapHandle::Create(heap);
     }
 
