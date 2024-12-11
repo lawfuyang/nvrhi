@@ -732,8 +732,30 @@ namespace nvrhi::d3d12
             return nullptr;
         }
 
+        // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        RefCountPtr<ID3D12Heap> d3dHeap;
+
+        D3D12MA::ALLOCATION_DESC allocDesc{};
+        allocDesc.Flags = (D3D12MA::ALLOCATION_FLAGS)(D3D12MA::ALLOCATION_FLAG_COMMITTED | D3D12MA::ALLOCATION_FLAG_WITHIN_BUDGET);
+        allocDesc.HeapType = heapDesc.Properties.Type;
+        allocDesc.ExtraHeapFlags = heapDesc.Flags;
+
+        D3D12_RESOURCE_ALLOCATION_INFO allocInfo{};
+        allocInfo.SizeInBytes = heapDesc.SizeInBytes;
+
+        // NOTE: ignore above 'heapDesc.Alignment' of D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT. 4MB is overkill.
+        allocInfo.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+
+        D3D12MA::Allocation* allocation = nullptr;
+        const HRESULT res = m_Allocator->AllocateMemory(&allocDesc, &allocInfo, &allocation);
+
+        d3dHeap = allocation->GetHeap();
+    #else
         RefCountPtr<ID3D12Heap> d3dHeap;
         const HRESULT res = m_Context.device->CreateHeap(&heapDesc, IID_PPV_ARGS(&d3dHeap));
+    #endif // NVRHI_D3D12_WITH_D3D12MA
+        // [rlaw] END
 
         if (FAILED(res))
         {
@@ -756,5 +778,18 @@ namespace nvrhi::d3d12
         heap->desc = d;
         return HeapHandle::Create(heap);
     }
+
+// [rlaw] BEGIN
+#ifdef NVRHI_D3D12_WITH_D3D12MA
+    Heap::~Heap()
+    {
+        if (m_Allocation)
+        {
+            m_Allocation->Release();
+            m_Allocation = nullptr;
+        }
+    }
+#endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
+// [rlaw] END
 
 } // namespace nvrhi::d3d12

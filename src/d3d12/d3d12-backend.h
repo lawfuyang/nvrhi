@@ -244,6 +244,13 @@ namespace nvrhi::d3d12
         HeapDesc desc;
         RefCountPtr<ID3D12Heap> heap;
 
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        ~Heap() override;
+        D3D12MA::Allocation* m_Allocation = nullptr;
+    #endif
+    // [rlaw] END
+
         const HeapDesc& getDesc() override { return desc; }
     };
 
