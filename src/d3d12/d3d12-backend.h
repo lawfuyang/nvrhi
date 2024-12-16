@@ -1034,7 +1034,9 @@ namespace nvrhi::d3d12
 
         void updateGraphicsVolatileBuffers() override;
         void updateComputeVolatileBuffers() override;
-        void setComputeBindings(const BindingSetVector& bindings, uint32_t bindingUpdateMask, IBuffer* indirectParams, bool updateIndirectParams, const RootSignature* rootSignature);
+
+        // [rlaw]: added indirectcount params
+        void setComputeBindings(const BindingSetVector& bindings, uint32_t bindingUpdateMask, IBuffer* indirectParams, bool updateIndirectParams, IBuffer* indirectCountParam, bool updateIndirectCountParam, const RootSignature* rootSignature);
 
         // [rlaw]: added indirectcount params
         void setGraphicsBindings(const BindingSetVector& bindings, uint32_t bindingUpdateMask, IBuffer* indirectParams, bool updateIndirectParams, IBuffer* indirectCountParam, bool updateIndirectCountParam, const RootSignature* rootSignature);

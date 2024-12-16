@@ -1210,7 +1210,8 @@ namespace nvrhi::d3d12
             m_Instance->referencedResources.push_back(pso);
         }
 
-        setComputeBindings(state.bindings, bindingUpdateMask, nullptr, false, pso->globalRootSignature);
+        // [rlaw]: add indirect count params
+        setComputeBindings(state.bindings, bindingUpdateMask, nullptr, false, nullptr, false, pso->globalRootSignature);
 
         unbindShadingRateState();
 

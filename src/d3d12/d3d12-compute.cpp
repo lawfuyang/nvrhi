@@ -105,6 +105,7 @@ namespace nvrhi::d3d12
 
         bool updatePipeline = !m_CurrentComputeStateValid || m_CurrentComputeState.pipeline != state.pipeline;
         bool updateIndirectParams = !m_CurrentComputeStateValid || m_CurrentComputeState.indirectParams != state.indirectParams;
+        bool updateIndirectCountParams = !m_CurrentComputeStateValid || m_CurrentComputeState.indirectCountBuffer != state.indirectCountBuffer; // [rlaw]: added indirect count buffer
 
         uint32_t bindingUpdateMask = 0;
         if (!m_CurrentComputeStateValid || updateRootSignature)
@@ -128,7 +129,8 @@ namespace nvrhi::d3d12
             m_Instance->referencedResources.push_back(pso);
         }
 
-        setComputeBindings(state.bindings, bindingUpdateMask, state.indirectParams, updateIndirectParams, pso->rootSignature);
+        // [rlaw]: added indirect count buffer
+        setComputeBindings(state.bindings, bindingUpdateMask, state.indirectParams, updateIndirectParams, state.indirectCountBuffer, updateIndirectCountParams, pso->rootSignature);
 
         unbindShadingRateState();
         
