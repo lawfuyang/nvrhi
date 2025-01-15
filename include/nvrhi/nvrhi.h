@@ -2654,6 +2654,7 @@ namespace nvrhi
 
         virtual void setMeshletState(const MeshletState& state) = 0;
         virtual void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) = 0;
+        virtual void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes = 0) = 0; // [rlaw]: support dispatchMeshIndirect
 
         virtual void setRayTracingState(const rt::State& state) = 0;
         virtual void dispatchRays(const rt::DispatchRaysArguments& args) = 0;
