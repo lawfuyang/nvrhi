@@ -125,6 +125,7 @@ namespace nvrhi::d3d12
         RefCountPtr<ID3D12CommandSignature> drawIndirectSignature;
         RefCountPtr<ID3D12CommandSignature> drawIndexedIndirectSignature;
         RefCountPtr<ID3D12CommandSignature> dispatchIndirectSignature;
+        RefCountPtr<ID3D12CommandSignature> dispatchMeshIndirectSignature;  // [rlaw]: support dispatchMeshIndirect
         RefCountPtr<ID3D12QueryHeap> timerQueryHeap;
         RefCountPtr<Buffer> timerQueryResolveBuffer;
 
@@ -984,6 +985,7 @@ namespace nvrhi::d3d12
 
         void setMeshletState(const MeshletState& state) override;
         void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;
+        void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes = 0) override; // [rlaw]: support dispatchMeshIndirect
 
         void setRayTracingState(const rt::State& state) override;
         void dispatchRays(const rt::DispatchRaysArguments& args) override;

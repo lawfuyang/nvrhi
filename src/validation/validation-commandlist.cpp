@@ -910,6 +910,35 @@ namespace nvrhi::validation
         m_CommandList->dispatchMesh(groupsX, groupsY, groupsZ);
     }
 
+    // [rlaw] BEGIN: support dispatchMeshIndirect
+    void CommandListWrapper::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes)
+    {
+        if (!requireOpenState())
+            return;
+
+        if (!requireType(CommandQueue::Graphics, "dispatchMesh"))
+            return;
+
+        if (!m_MeshletStateSet)
+        {
+            error("Meshlet state is not set before a dispatchMesh call.\n"
+                "Note that setting graphics or compute state invalidates the meshlet state.");
+            return;
+        }
+
+        if (!validatePushConstants("meshlet", "setMeshletState"))
+            return;
+
+        if (!m_CurrentMeshletState.indirectParams)
+        {
+            error("Indirect params buffer is not set before a dispatchMeshIndirect call.");
+            return;
+        }
+
+        m_CommandList->dispatchMeshIndirect(offsetBytes, countBufferOffsetBytes);
+    }
+    // [rlaw] END: support dispatchMeshIndirect
+
     void CommandListWrapper::beginTimerQuery(ITimerQuery* query)
     {
         if (!requireOpenState())

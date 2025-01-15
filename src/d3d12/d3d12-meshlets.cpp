@@ -301,4 +301,19 @@ namespace nvrhi::d3d12
 
         m_ActiveCommandList->commandList6->DispatchMesh(groupsX, groupsY, groupsZ);
     }
+
+    // [rlaw] BEGIN: support dispatchMeshIndirect
+    void CommandList::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes /*= 0*/)
+    {
+        Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentMeshletState.indirectParams);
+        assert(indirectParams); // validation layer handles this
+
+        Buffer* indirectCountBuffer = checked_cast<Buffer*>(m_CurrentMeshletState.indirectCountBuffer);
+
+        updateGraphicsVolatileBuffers();
+        
+        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchMeshIndirectSignature, 1, indirectParams->resource, offsetBytes, indirectCountBuffer ? indirectCountBuffer->resource : nullptr, countBufferOffsetBytes);
+    }
+    // [rlaw] END: support dispatchMeshIndirect
+
 } // namespace nvrhi::d3d12
