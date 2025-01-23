@@ -132,8 +132,18 @@ namespace nvrhi::d3d12
                 break;
         }
 
+        // Allow readback buffers to be used as resolve destination targets
+        if ((buffer->desc.cpuAccess == CpuAccessMode::Read) && (d.initialState == ResourceStates::ResolveDest))
+        {
+            heapProps.Type = D3D12_HEAP_TYPE_CUSTOM;
+            heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+            heapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+            initialState = D3D12_RESOURCE_STATE_RESOLVE_DEST;
+        }
+
     // [rlaw]: D3D12MA
     #ifdef NVRHI_D3D12_WITH_D3D12MA
+    
         D3D12MA::ALLOCATION_DESC allocDesc{};
         allocDesc.Flags = D3D12MA::ALLOCATION_FLAG_WITHIN_BUDGET;
         allocDesc.HeapType = heapProps.Type;
@@ -149,6 +159,7 @@ namespace nvrhi::d3d12
             IID_PPV_ARGS(&buffer->resource));
 
     #else // NVRHI_D3D12_WITH_D3D12MA
+
         HRESULT res = m_Context.device->CreateCommittedResource(
             &heapProps,
             heapFlags,
@@ -156,6 +167,7 @@ namespace nvrhi::d3d12
             initialState,
             nullptr,
             IID_PPV_ARGS(&buffer->resource));
+
     #endif // NVRHI_D3D12_WITH_D3D12MA
 
         if (FAILED(res))
