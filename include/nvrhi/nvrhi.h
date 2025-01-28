@@ -2324,7 +2324,6 @@ namespace nvrhi
         IndexBufferBinding indexBuffer;
 
         IBuffer* indirectParams = nullptr;
-        IBuffer* indirectCountBuffer = nullptr; // [rlaw]
 
         GraphicsState& setPipeline(IGraphicsPipeline* value) { pipeline = value; return *this; }
         GraphicsState& setFramebuffer(IFramebuffer* value) { framebuffer = value; return *this; }
@@ -2388,7 +2387,6 @@ namespace nvrhi
         BindingSetVector bindings;
 
         IBuffer* indirectParams = nullptr;
-        IBuffer* indirectCountBuffer = nullptr; // [rlaw]
 
         ComputeState& setPipeline(IComputePipeline* value) { pipeline = value; return *this; }
         ComputeState& addBindingSet(IBindingSet* value) { bindings.push_back(value); return *this; }
@@ -2406,7 +2404,6 @@ namespace nvrhi
         BindingSetVector bindings;
 
         IBuffer* indirectParams = nullptr;
-        IBuffer* indirectCountBuffer = nullptr; // [rlaw]
 
         MeshletState& setPipeline(IMeshletPipeline* value) { pipeline = value; return *this; }
         MeshletState& setFramebuffer(IFramebuffer* value) { framebuffer = value; return *this; }
@@ -2645,16 +2642,16 @@ namespace nvrhi
         virtual void setGraphicsState(const GraphicsState& state) = 0;
         virtual void draw(const DrawArguments& args) = 0;
         virtual void drawIndexed(const DrawArguments& args) = 0;
-        virtual void drawIndirect(uint32_t offsetBytes, uint32_t drawCount = 1, uint32_t countBufferOffsetBytes = 0) = 0; // [rlaw]: added countBufferOffsetBytes
-        virtual void drawIndexedIndirect(uint32_t offsetBytes, uint32_t drawCount = 1, uint32_t countBufferOffsetBytes = 0) = 0; // [rlaw]: added countBufferOffsetBytes
+        virtual void drawIndirect(uint32_t offsetBytes, uint32_t drawCount = 1) = 0;
+        virtual void drawIndexedIndirect(uint32_t offsetBytes, uint32_t drawCount = 1) = 0;
         
         virtual void setComputeState(const ComputeState& state) = 0;
         virtual void dispatch(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) = 0;
-        virtual void dispatchIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes = 0) = 0; // [rlaw]: added countBufferOffsetBytes
+        virtual void dispatchIndirect(uint32_t offsetBytes) = 0;
 
         virtual void setMeshletState(const MeshletState& state) = 0;
         virtual void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) = 0;
-        virtual void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes = 0) = 0; // [rlaw]: support dispatchMeshIndirect
+        virtual void dispatchMeshIndirect(uint32_t offsetBytes) = 0; // [rlaw]: support dispatchMeshIndirect
 
         virtual void setRayTracingState(const rt::State& state) = 0;
         virtual void dispatchRays(const rt::DispatchRaysArguments& args) = 0;

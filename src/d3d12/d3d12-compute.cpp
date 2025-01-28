@@ -105,7 +105,6 @@ namespace nvrhi::d3d12
 
         bool updatePipeline = !m_CurrentComputeStateValid || m_CurrentComputeState.pipeline != state.pipeline;
         bool updateIndirectParams = !m_CurrentComputeStateValid || m_CurrentComputeState.indirectParams != state.indirectParams;
-        bool updateIndirectCountParams = !m_CurrentComputeStateValid || m_CurrentComputeState.indirectCountBuffer != state.indirectCountBuffer; // [rlaw]: added indirect count buffer
 
         uint32_t bindingUpdateMask = 0;
         if (!m_CurrentComputeStateValid || updateRootSignature)
@@ -129,8 +128,7 @@ namespace nvrhi::d3d12
             m_Instance->referencedResources.push_back(pso);
         }
 
-        // [rlaw]: added indirect count buffer
-        setComputeBindings(state.bindings, bindingUpdateMask, state.indirectParams, updateIndirectParams, state.indirectCountBuffer, updateIndirectCountParams, pso->rootSignature);
+        setComputeBindings(state.bindings, bindingUpdateMask, state.indirectParams, updateIndirectParams, pso->rootSignature);
 
         unbindShadingRateState();
         
@@ -171,17 +169,14 @@ namespace nvrhi::d3d12
         m_ActiveCommandList->commandList->Dispatch(groupsX, groupsY, groupsZ);
     }
 
-    void CommandList::dispatchIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes) // [rlaw]: added countBufferOffsetBytes
+    void CommandList::dispatchIndirect(uint32_t offsetBytes)
     {
         Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentComputeState.indirectParams);
         assert(indirectParams); // validation layer handles this
 
-        Buffer* indirectCountBuffer = checked_cast<Buffer*>(m_CurrentComputeState.indirectCountBuffer); // [rlaw]
-
         updateComputeVolatileBuffers();
 
-        // [rlaw]: added indirect count params & countBufferOffsetBytes
-        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchIndirectSignature, 1, indirectParams->resource, offsetBytes, indirectCountBuffer ? indirectCountBuffer->resource : nullptr, countBufferOffsetBytes);
+        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchIndirectSignature, 1, indirectParams->resource, offsetBytes, nullptr, 0);
     }
 
 } // namespace nvrhi::d3d12

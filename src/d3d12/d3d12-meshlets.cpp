@@ -221,7 +221,6 @@ namespace nvrhi::d3d12
 
         const bool updatePipeline = !m_CurrentMeshletStateValid || m_CurrentMeshletState.pipeline != state.pipeline;
         const bool updateIndirectParams = !m_CurrentMeshletStateValid || m_CurrentMeshletState.indirectParams != state.indirectParams;
-        const bool updateIndirectCountParam = !m_CurrentGraphicsStateValid || (m_CurrentMeshletState.indirectCountBuffer != state.indirectCountBuffer); // [rlaw]
 
         const bool updateViewports = !m_CurrentMeshletStateValid ||
             arraysAreDifferent(m_CurrentMeshletState.viewport.viewports, state.viewport.viewports) ||
@@ -266,8 +265,7 @@ namespace nvrhi::d3d12
             m_Instance->referencedResources.push_back(framebuffer);
         }
 
-        // [rlaw]: added indirect count params
-        setGraphicsBindings(state.bindings, bindingUpdateMask, state.indirectParams, updateIndirectParams, state.indirectCountBuffer, updateIndirectCountParam, pso->rootSignature);
+        setGraphicsBindings(state.bindings, bindingUpdateMask, state.indirectParams, updateIndirectParams, pso->rootSignature);
         
         commitBarriers();
 
@@ -303,16 +301,14 @@ namespace nvrhi::d3d12
     }
 
     // [rlaw] BEGIN: support dispatchMeshIndirect
-    void CommandList::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes /*= 0*/)
+    void CommandList::dispatchMeshIndirect(uint32_t offsetBytes)
     {
         Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentMeshletState.indirectParams);
         assert(indirectParams); // validation layer handles this
 
-        Buffer* indirectCountBuffer = checked_cast<Buffer*>(m_CurrentMeshletState.indirectCountBuffer);
-
         updateGraphicsVolatileBuffers();
         
-        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchMeshIndirectSignature, 1, indirectParams->resource, offsetBytes, indirectCountBuffer ? indirectCountBuffer->resource : nullptr, countBufferOffsetBytes);
+        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchMeshIndirectSignature, 1, indirectParams->resource, offsetBytes, nullptr, 0);
     }
     // [rlaw] END: support dispatchMeshIndirect
 

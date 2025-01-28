@@ -976,16 +976,16 @@ namespace nvrhi::d3d12
         void setGraphicsState(const GraphicsState& state) override;
         void draw(const DrawArguments& args) override;
         void drawIndexed(const DrawArguments& args) override;
-        void drawIndirect(uint32_t offsetBytes, uint32_t drawCount, uint32_t countBufferOffsetBytes = 0) override; // [rlaw]: added countBufferOffsetBytes
-        void drawIndexedIndirect(uint32_t offsetBytes, uint32_t drawCount, uint32_t countBufferOffsetBytes = 0) override; // [rlaw]: added countBufferOffsetBytes
+        void drawIndirect(uint32_t offsetBytes, uint32_t drawCount) override;
+        void drawIndexedIndirect(uint32_t offsetBytes, uint32_t drawCount) override;
 
         void setComputeState(const ComputeState& state) override;
         void dispatch(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;
-        void dispatchIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes = 0) override; // [rlaw]: added countBufferOffsetBytes
+        void dispatchIndirect(uint32_t offsetBytes) override;
 
         void setMeshletState(const MeshletState& state) override;
         void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;
-        void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes = 0) override; // [rlaw]: support dispatchMeshIndirect
+        void dispatchMeshIndirect(uint32_t offsetBytes) override; // [rlaw]: support dispatchMeshIndirect
 
         void setRayTracingState(const rt::State& state) override;
         void dispatchRays(const rt::DispatchRaysArguments& args) override;
@@ -1037,11 +1037,8 @@ namespace nvrhi::d3d12
         void updateGraphicsVolatileBuffers() override;
         void updateComputeVolatileBuffers() override;
 
-        // [rlaw]: added indirectcount params
-        void setComputeBindings(const BindingSetVector& bindings, uint32_t bindingUpdateMask, IBuffer* indirectParams, bool updateIndirectParams, IBuffer* indirectCountParam, bool updateIndirectCountParam, const RootSignature* rootSignature);
-
-        // [rlaw]: added indirectcount params
-        void setGraphicsBindings(const BindingSetVector& bindings, uint32_t bindingUpdateMask, IBuffer* indirectParams, bool updateIndirectParams, IBuffer* indirectCountParam, bool updateIndirectCountParam, const RootSignature* rootSignature);
+        void setComputeBindings(const BindingSetVector& bindings, uint32_t bindingUpdateMask, IBuffer* indirectParams, bool updateIndirectParams, const RootSignature* rootSignature);
+        void setGraphicsBindings(const BindingSetVector& bindings, uint32_t bindingUpdateMask, IBuffer* indirectParams, bool updateIndirectParams, const RootSignature* rootSignature);
         
     private:
         const Context& m_Context;

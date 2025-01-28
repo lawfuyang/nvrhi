@@ -611,13 +611,6 @@ namespace nvrhi::validation
             anyErrors = true;
         }
 
-        // [rlaw]: added indirect count params
-        if (state.indirectCountBuffer && !state.indirectCountBuffer->getDesc().isDrawIndirectArgs)
-        {
-            ss << "Cannot use buffer '" << utils::DebugNameToString(state.indirectCountBuffer->getDesc().debugName) << "' as a DrawIndirect argument buffer because it does not have the isDrawIndirectArgs flag set." << std::endl;
-            anyErrors = true;
-        }
-
         if (anyErrors)
         {
             error(ss.str());
@@ -700,7 +693,7 @@ namespace nvrhi::validation
         m_CommandList->drawIndexed(args);
     }
 
-    void CommandListWrapper::drawIndirect(uint32_t offsetBytes, uint32_t drawCount, uint32_t countBufferOffsetBytes) // [rlaw]: added countBufferOffsetBytes
+    void CommandListWrapper::drawIndirect(uint32_t offsetBytes, uint32_t drawCount)
     {
         if (!requireOpenState())
             return;
@@ -724,10 +717,10 @@ namespace nvrhi::validation
         if (!validatePushConstants("graphics", "setGraphicsState"))
             return;
 
-        m_CommandList->drawIndirect(offsetBytes, drawCount, countBufferOffsetBytes); // [rlaw]: added countBufferOffsetBytes
+        m_CommandList->drawIndirect(offsetBytes, drawCount);
     }
 
-    void CommandListWrapper::drawIndexedIndirect(uint32_t offsetBytes, uint32_t drawCount, uint32_t countBufferOffsetBytes) // [rlaw]: added countBufferOffsetBytes
+    void CommandListWrapper::drawIndexedIndirect(uint32_t offsetBytes, uint32_t drawCount)
     {
         if (!requireOpenState())
             return;
@@ -751,7 +744,7 @@ namespace nvrhi::validation
         if (!validatePushConstants("graphics", "setGraphicsState"))
             return;
 
-        m_CommandList->drawIndexedIndirect(offsetBytes, drawCount, countBufferOffsetBytes); // [rlaw]: added countBufferOffsetBytes
+        m_CommandList->drawIndexedIndirect(offsetBytes, drawCount);
     }
 
     void CommandListWrapper::setComputeState(const ComputeState& state)
@@ -826,7 +819,7 @@ namespace nvrhi::validation
         m_CommandList->dispatch(groupsX, groupsY, groupsZ);
     }
 
-    void CommandListWrapper::dispatchIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes) // [rlaw]: added countBufferOffsetBytes
+    void CommandListWrapper::dispatchIndirect(uint32_t offsetBytes)
     {
         if (!requireOpenState())
             return;
@@ -850,7 +843,7 @@ namespace nvrhi::validation
         if (!validatePushConstants("compute", "setComputeState"))
             return;
 
-        m_CommandList->dispatchIndirect(offsetBytes, countBufferOffsetBytes);
+        m_CommandList->dispatchIndirect(offsetBytes);
     }
 
     void CommandListWrapper::setMeshletState(const MeshletState& state)
@@ -911,7 +904,7 @@ namespace nvrhi::validation
     }
 
     // [rlaw] BEGIN: support dispatchMeshIndirect
-    void CommandListWrapper::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t countBufferOffsetBytes)
+    void CommandListWrapper::dispatchMeshIndirect(uint32_t offsetBytes)
     {
         if (!requireOpenState())
             return;
@@ -935,7 +928,7 @@ namespace nvrhi::validation
             return;
         }
 
-        m_CommandList->dispatchMeshIndirect(offsetBytes, countBufferOffsetBytes);
+        m_CommandList->dispatchMeshIndirect(offsetBytes);
     }
     // [rlaw] END: support dispatchMeshIndirect
 
