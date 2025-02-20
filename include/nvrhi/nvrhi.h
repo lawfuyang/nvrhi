@@ -2773,7 +2773,8 @@ namespace nvrhi
         ComputeQueue,
         CopyQueue,
         ConstantBufferRanges,
-        HeapDirectlyIndexed
+        HeapDirectlyIndexed,
+        SamplerFeedback
     };
 
     enum class MessageSeverity : uint8_t
@@ -2870,6 +2871,10 @@ namespace nvrhi
         virtual void writeBuffer(IBuffer* b, const void* data, size_t dataSize, uint64_t destOffsetBytes = 0) = 0;
         virtual void clearBufferUInt(IBuffer* b, uint32_t clearValue) = 0;
         virtual void copyBuffer(IBuffer* dest, uint64_t destOffsetBytes, IBuffer* src, uint64_t srcOffsetBytes, uint64_t dataSizeBytes) = 0;
+
+        virtual void clearSamplerFeedbackTexture(ISamplerFeedbackTexture* texture) = 0;
+        virtual void decodeSamplerFeedbackTexture(IBuffer* buffer, ISamplerFeedbackTexture* texture, nvrhi::Format format) = 0;
+        virtual void setSamplerFeedbackTextureState(ISamplerFeedbackTexture* texture, ResourceStates stateBits) = 0;
 
         // Sets the push constants block on the command list, aka "root constants" on DX12.
         // Only valid after setGraphicsState or setComputeState etc.
@@ -2983,6 +2988,9 @@ namespace nvrhi
 
         virtual void getTextureTiling(ITexture* texture, uint32_t* numTiles, PackedMipDesc* desc, TileShape* tileShape, uint32_t* subresourceTilingsNum, SubresourceTiling* subresourceTilings) = 0;
         virtual void updateTextureTileMappings(ITexture* texture, const TextureTilesMapping* tileMappings, uint32_t numTileMappings, CommandQueue executionQueue = CommandQueue::Graphics) = 0;
+
+        virtual SamplerFeedbackTextureHandle createSamplerFeedbackTexture(ITexture* pairedTexture, const SamplerFeedbackTextureDesc& desc) = 0;
+        virtual SamplerFeedbackTextureHandle createSamplerFeedbackForNativeTexture(ObjectType objectType, Object texture, ITexture* pairedTexture) = 0;
 
         virtual BufferHandle createBuffer(const BufferDesc& d) = 0;
         virtual void* mapBuffer(IBuffer* buffer, CpuAccessMode cpuAccess) = 0;

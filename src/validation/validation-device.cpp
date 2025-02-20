@@ -251,6 +251,36 @@ namespace nvrhi::validation
         m_Device->updateTextureTileMappings(texture, tileMappings, numTileMappings, executionQueue);
     }
 
+    SamplerFeedbackTextureHandle DeviceWrapper::createSamplerFeedbackTexture(ITexture* pairedTexture, const SamplerFeedbackTextureDesc& desc)
+    {
+        const GraphicsAPI graphicsApi = m_Device->getGraphicsAPI();
+        if (graphicsApi != GraphicsAPI::D3D12)
+        {
+            std::stringstream ss;
+            ss << "The current graphics API (" << utils::GraphicsAPIToString(m_Device->getGraphicsAPI()) << ") "
+                "doesn't support createSamplerFeedbackTexture";
+            error(ss.str());
+            return nullptr;
+        }
+
+        return m_Device->createSamplerFeedbackTexture(pairedTexture, desc);
+    }
+
+    SamplerFeedbackTextureHandle DeviceWrapper::createSamplerFeedbackForNativeTexture(ObjectType objectType, Object texture, ITexture* pairedTexture)
+    {
+        const GraphicsAPI graphicsApi = m_Device->getGraphicsAPI();
+        if (graphicsApi != GraphicsAPI::D3D12)
+        {
+            std::stringstream ss;
+            ss << "The current graphics API (" << utils::GraphicsAPIToString(m_Device->getGraphicsAPI()) << ") "
+                "doesn't support createSamplerFeedbackForNativeTexture";
+            error(ss.str());
+            return nullptr;
+        }
+
+        return createSamplerFeedbackForNativeTexture(objectType, texture, pairedTexture);
+    }
+
     MemoryRequirements DeviceWrapper::getTextureMemoryRequirements(ITexture* texture)
     {
         if (texture == nullptr)

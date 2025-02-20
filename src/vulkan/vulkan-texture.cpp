@@ -669,6 +669,30 @@ namespace nvrhi::vulkan
         clearTexture(texture, subresources, clearValue);
     }
 
+    void CommandList::clearSamplerFeedbackTexture(ISamplerFeedbackTexture* texture)
+    {
+        (void)texture;
+
+        utils::NotSupported();
+    }
+
+    void CommandList::decodeSamplerFeedbackTexture(IBuffer* buffer, ISamplerFeedbackTexture* texture, nvrhi::Format format)
+    {
+        (void)buffer;
+        (void)texture;
+        (void)format;
+
+        utils::NotSupported();
+    }
+
+    void CommandList::setSamplerFeedbackTextureState(ISamplerFeedbackTexture* texture, ResourceStates stateBits)
+    {
+        (void)texture;
+        (void)stateBits;
+
+        utils::NotSupported();
+    }
+
     Object Texture::getNativeObject(ObjectType objectType)
     {
         switch (objectType)

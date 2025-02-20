@@ -467,6 +467,21 @@ namespace nvrhi::validation
         m_CommandList->copyBuffer(dest, destOffsetBytes, src, srcOffsetBytes, dataSizeBytes);
     }
 
+    void CommandListWrapper::clearSamplerFeedbackTexture(ISamplerFeedbackTexture* texture)
+    {
+        m_CommandList->clearSamplerFeedbackTexture(texture);
+    }
+
+    void CommandListWrapper::decodeSamplerFeedbackTexture(IBuffer* buffer, ISamplerFeedbackTexture* texture, nvrhi::Format format)
+    {
+        m_CommandList->decodeSamplerFeedbackTexture(buffer, texture, format);
+    }
+
+    void CommandListWrapper::setSamplerFeedbackTextureState(ISamplerFeedbackTexture* texture, ResourceStates stateBits)
+    {
+        m_CommandList->setSamplerFeedbackTextureState(texture, stateBits);
+    }
+
     bool CommandListWrapper::validateBindingSetsAgainstLayouts(const static_vector<BindingLayoutHandle, c_MaxBindingLayouts>& layouts, const static_vector<IBindingSet*, c_MaxBindingLayouts>& sets) const
     {
         if (layouts.size() != sets.size())

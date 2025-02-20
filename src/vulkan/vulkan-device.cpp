@@ -37,9 +37,9 @@ namespace nvrhi::vulkan
     {
 #if defined(NVRHI_SHARED_LIBRARY_BUILD)
 #if VK_HEADER_VERSION >= 301
-        vk::detail::DynamicLoader dl;
+        vk::detail::DynamicLoader dl(desc.vulkanLibraryName);
 #else
-        vk::DynamicLoader dl;
+        vk::DynamicLoader dl(desc.vulkanLibraryName);
 #endif
         const PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =   // NOLINT(misc-misplaced-const)
             dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
@@ -531,6 +531,27 @@ namespace nvrhi::vulkan
             auto memoryRequirements = m_Context.device.getImageMemoryRequirements(texture->image);
             *numTiles = (uint32_t)(memoryRequirements.size / texture->tileByteSize);
         }
+    }
+
+    SamplerFeedbackTextureHandle Device::createSamplerFeedbackTexture(ITexture* pairedTexture, const SamplerFeedbackTextureDesc& desc)
+    {
+        (void)pairedTexture;
+        (void)desc;
+
+        utils::NotSupported();
+
+        return nullptr;
+    }
+
+    SamplerFeedbackTextureHandle Device::createSamplerFeedbackForNativeTexture(ObjectType objectType, Object texture, ITexture* pairedTexture)
+    {
+        (void)objectType;
+        (void)texture;
+        (void)pairedTexture;
+
+        utils::NotSupported();
+
+        return nullptr;
     }
 
     HeapHandle Device::createHeap(const HeapDesc& d)
