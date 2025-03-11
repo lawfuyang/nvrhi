@@ -1169,7 +1169,21 @@ namespace nvrhi::d3d12
     {
         SamplerFeedbackTexture* texture = checked_cast<SamplerFeedbackTexture*>(_texture);
 
-        m_ActiveCommandList->commandList->DiscardResource(texture->resource, nullptr);
+        DescriptorIndex& descriptorIndex = texture->clearDescriptorIndex;
+        if (descriptorIndex == c_InvalidDescriptorIndex)
+        {
+            descriptorIndex = m_Resources.shaderResourceViewHeap.allocateDescriptor();
+            texture->createUAV(m_Resources.shaderResourceViewHeap.getCpuHandle(descriptorIndex).ptr);
+            m_Resources.shaderResourceViewHeap.copyToShaderVisibleHeap(descriptorIndex);
+        }
+
+        commitDescriptorHeaps();
+
+        const UINT clearValue[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
+        m_ActiveCommandList->commandList->ClearUnorderedAccessViewUint(
+            m_Resources.shaderResourceViewHeap.getGpuHandle(descriptorIndex),
+            m_Resources.shaderResourceViewHeap.getCpuHandle(descriptorIndex),
+            texture->resource, clearValue, 0, nullptr);
     }
 
     void CommandList::decodeSamplerFeedbackTexture(IBuffer* _buffer, ISamplerFeedbackTexture* _texture, nvrhi::Format format)

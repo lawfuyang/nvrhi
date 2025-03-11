@@ -413,6 +413,7 @@ namespace nvrhi::d3d12
         const TextureDesc textureDesc; // used with state tracking
         RefCountPtr<ID3D12Resource> resource;
         TextureHandle pairedTexture;
+        DescriptorIndex clearDescriptorIndex = c_InvalidDescriptorIndex;
 
         SamplerFeedbackTexture(const Context& context, DeviceResources& resources, SamplerFeedbackTextureDesc desc, TextureDesc textureDesc, ITexture* pairedTexture)
             : desc(std::move(desc))

@@ -668,6 +668,7 @@ namespace nvrhi::validation
             case ResourceType::TypedBuffer_UAV:
             case ResourceType::StructuredBuffer_UAV:
             case ResourceType::RawBuffer_UAV:
+            case ResourceType::SamplerFeedbackTexture_UAV:
                 if (bindingSet.UAV.get(item.slot))
                 {
                     duplicates.UAV.set(item.slot, true);
@@ -1414,6 +1415,10 @@ namespace nvrhi::validation
 
             break;
         }
+
+        case ResourceType::SamplerFeedbackTexture_UAV:
+            // Nothing to validate for sampler feedback resources: their bindings have no parameters, and NULL is allowed.
+            break;
 
         case ResourceType::TypedBuffer_SRV:
         case ResourceType::TypedBuffer_UAV:
