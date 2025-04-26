@@ -643,8 +643,7 @@ namespace nvrhi::vulkan
         std::vector<ShaderSpecialization> specializationConstants;
 
         explicit Shader(const VulkanContext& context)
-            : desc(ShaderType::None)
-            , m_Context(context)
+            : m_Context(context)
         { }
 
         ~Shader() override;

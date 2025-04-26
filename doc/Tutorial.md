@@ -103,7 +103,7 @@ struct Vertex {
 };
 
 nvrhi::ShaderHandle vertexShader = nvrhiDevice->createShader(
-    nvrhi::ShaderDesc(nvrhi::ShaderType::Vertex),
+    nvrhi::ShaderDesc().setShaderType(nvrhi::ShaderType::Vertex),
     g_VertexShader, sizeof(g_VertexShader));
 
 nvrhi::VertexAttributeDesc attributes[] = {
@@ -123,7 +123,7 @@ nvrhi::InputLayoutHandle = inputLayout = nvrhiDevice->createInputLayout(
     attributes, uint32_t(std::size(attributes)), vertexShader);
 
 nvrhi::ShaderHandle pixelShader = nvrhiDevice->createShader(
-    nvrhi::ShaderDesc(nvrhi::ShaderType::Pixel),
+    nvrhi::ShaderDesc().setShaderType(nvrhi::ShaderType::Pixel),
     g_PixelShader, sizeof(g_PixelShader));
 ```
 
