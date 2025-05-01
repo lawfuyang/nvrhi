@@ -186,6 +186,7 @@ namespace
         void SetInstanceDescs(D3D12_GPU_VIRTUAL_ADDRESS instanceDescs, UINT numDescs) {
             m_desc.InstanceDescs = instanceDescs;
             m_desc.NumDescs = numDescs;
+            m_desc.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
         }
 
         D3D12RaytracingGeometryDesc& GetGeometryDesc(uint32_t index) {
