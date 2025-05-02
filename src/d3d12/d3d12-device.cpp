@@ -77,6 +77,7 @@ namespace nvrhi::d3d12
         , shaderResourceViewHeap(context)
         , samplerHeap(context)
         , timerQueries(desc.maxTimerQueries, true)
+        , pipelineStatisticsQueries(desc.maxPipelineStatisticsQueries, true) // [rlaw]: Pipeline Query support
         , m_Context(context)
     {
     }
@@ -340,6 +341,7 @@ namespace nvrhi::d3d12
 // [rlaw] BEGIN
 #ifdef NVRHI_D3D12_WITH_D3D12MA
         m_Context.timerQueryResolveBuffer.Reset();
+        m_Context.pipelineStatisticsQueryResolveBuffer.Reset();
 
         assert(m_Allocator);
         m_Allocator->Release();

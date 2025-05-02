@@ -2507,6 +2507,29 @@ namespace nvrhi
     class ITimerQuery : public IResource { };
     typedef RefCountPtr<ITimerQuery> TimerQueryHandle;
 
+    // [rlaw] BEGIN: Pipeline Query Support
+    class IPipelineStatisticsQuery : public IResource {};
+    typedef RefCountPtr<IPipelineStatisticsQuery> PipelineStatisticsQueryHandle;
+
+    struct PipelineStatistics
+    {
+        uint64_t IAVertices = 0;
+        uint64_t IAPrimitives = 0;
+        uint64_t VSInvocations = 0;
+        uint64_t GSInvocations = 0;
+        uint64_t GSPrimitives = 0;
+        uint64_t CInvocations = 0;
+        uint64_t CPrimitives = 0;
+        uint64_t PSInvocations = 0;
+        uint64_t HSInvocations = 0;
+        uint64_t DSInvocations = 0;
+        uint64_t CSInvocations = 0;
+        uint64_t ASInvocations = 0;
+        uint64_t MSInvocations = 0;
+        uint64_t MSPrimitives = 0;
+    };
+    // [rlaw] END: Pipeline Query Support
+
     struct VertexBufferBinding
     {
         IBuffer* buffer = nullptr;
@@ -3320,7 +3343,11 @@ namespace nvrhi
         // Returns the CommandListParameters structure that was used to create the command list. 
         virtual const CommandListParameters& getDesc() = 0;
 
-        uint64_t m_GPULog = ULLONG_MAX; // [rlaw]
+        // [rlaw]: BEGIN
+        uint64_t m_GPULog = ULLONG_MAX;
+        virtual void beginPipelineStatisticsQuery(IPipelineStatisticsQuery* query) = 0;
+        virtual void endPipelineStatisticsQuery(IPipelineStatisticsQuery* query) = 0;
+        // [rlaw]: END
     };
 
     typedef RefCountPtr<ICommandList> CommandListHandle;
@@ -3382,6 +3409,13 @@ namespace nvrhi
         // returns time in seconds
         virtual float getTimerQueryTime(ITimerQuery* query) = 0;
         virtual void resetTimerQuery(ITimerQuery* query) = 0;
+
+        // [rlaw] BEGIN: Pipeline Query Support
+        virtual PipelineStatisticsQueryHandle createPipelineStatisticsQuery() = 0;
+        virtual PipelineStatistics getPipelineStatistics(IPipelineStatisticsQuery* query) = 0;
+        virtual bool pollPipelineStatisticsQuery(IPipelineStatisticsQuery* query) = 0;
+        virtual void resetPipelineStatisticsQuery(IPipelineStatisticsQuery* query) = 0;
+        // [rlaw] END: Pipeline Query Support
 
         // Returns the API kind that the RHI backend is running on top of.
         virtual GraphicsAPI getGraphicsAPI() = 0;

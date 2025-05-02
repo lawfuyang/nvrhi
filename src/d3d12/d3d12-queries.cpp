@@ -221,5 +221,125 @@ namespace nvrhi::d3d12
             query->beginQueryIndex * 8);
     }
 
+    // [rlaw] BEGIN: Pipeline Query support
+    PipelineStatisticsQuery::~PipelineStatisticsQuery()
+    {
+        m_Resources.pipelineStatisticsQueries.release(static_cast<int>(queryIndex));
+    }
+
+    PipelineStatisticsQueryHandle Device::createPipelineStatisticsQuery()
+    {
+        static_assert(sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1) == sizeof(PipelineStatistics));
+
+        if (!m_Context.pipelineStatisticsQueryHeap)
+        {
+            std::lock_guard lockGuard{ m_Mutex };
+
+            if (!m_Context.pipelineStatisticsQueryHeap)
+            {
+                D3D12_QUERY_HEAP_DESC queryHeapDesc = {};
+                queryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS1;
+                queryHeapDesc.Count = uint32_t(m_Resources.pipelineStatisticsQueries.getCapacity());
+                m_Context.device->CreateQueryHeap(&queryHeapDesc, IID_PPV_ARGS(&m_Context.pipelineStatisticsQueryHeap));
+
+                BufferDesc qbDesc;
+                qbDesc.byteSize = queryHeapDesc.Count * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1);
+                qbDesc.cpuAccess = CpuAccessMode::Read;
+                qbDesc.debugName = "pipelineStatisticsQueryResolveBuffer";
+
+                BufferHandle queryBuffer = createBuffer(qbDesc);
+                m_Context.pipelineStatisticsQueryResolveBuffer = checked_cast<Buffer*>(queryBuffer.Get());
+            }
+        }
+
+        const int queryIndex = m_Resources.pipelineStatisticsQueries.allocate();
+        assert(queryIndex >= 0);
+
+        PipelineStatisticsQuery* query = new PipelineStatisticsQuery{ m_Resources };
+        query->queryIndex = queryIndex;
+        return PipelineStatisticsQueryHandle::Create(query);
+    }
+
+    PipelineStatistics Device::getPipelineStatistics(IPipelineStatisticsQuery* _query)
+    {
+        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
+
+        if (!query->resolved)
+        {
+            if (query->fence)
+            {
+                WaitForFence(query->fence, query->fenceCounter, m_FenceEvent);
+                query->fence = nullptr;
+            }
+
+            const D3D12_RANGE bufferReadRange = { query->queryIndex * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1), (query->queryIndex + 1) * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1) };
+            D3D12_QUERY_DATA_PIPELINE_STATISTICS1* data;
+            const HRESULT res = m_Context.pipelineStatisticsQueryResolveBuffer->resource->Map(0, &bufferReadRange, (void**)&data);
+            assert(SUCCEEDED(res));
+
+            query->resolved = true;
+            memcpy(&query->statistics, data, sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1));
+
+            m_Context.pipelineStatisticsQueryResolveBuffer->resource->Unmap(0, nullptr);
+        }
+
+        return query->statistics;
+    }
+
+    void CommandList::beginPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
+    {
+        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
+
+        m_Instance->referencedPipelineStatisticsQueries.push_back(query);
+
+        m_ActiveCommandList->commandList->BeginQuery(m_Context.pipelineStatisticsQueryHeap, D3D12_QUERY_TYPE_PIPELINE_STATISTICS1, query->queryIndex);
+    }
+
+    void CommandList::endPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
+    {
+        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
+
+        m_Instance->referencedPipelineStatisticsQueries.push_back(query);
+
+        m_ActiveCommandList->commandList->EndQuery(m_Context.pipelineStatisticsQueryHeap, D3D12_QUERY_TYPE_PIPELINE_STATISTICS1, query->queryIndex);
+
+        m_ActiveCommandList->commandList->ResolveQueryData(
+            m_Context.pipelineStatisticsQueryHeap,
+            D3D12_QUERY_TYPE_PIPELINE_STATISTICS1,
+            query->queryIndex,
+            1,
+            m_Context.pipelineStatisticsQueryResolveBuffer->resource,
+            query->queryIndex * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1));
+    }
+
+    bool Device::pollPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
+    {
+        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
+
+        if (!query->started)
+            return false;
+
+        if (!query->fence)
+            return true;
+
+        if (query->fence->GetCompletedValue() >= query->fenceCounter)
+        {
+            query->fence = nullptr;
+            return true;
+        }
+
+        return false;
+    }
+
+    void Device::resetPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
+    {
+        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
+
+        query->started = false;
+        query->resolved = false;
+        query->fence = nullptr;
+        memset(&query->statistics, 0, sizeof(PipelineStatistics));
+    }
+    // [rlaw] END: Pipeline Query support
 
 } // namespace nvrhi::d3d12

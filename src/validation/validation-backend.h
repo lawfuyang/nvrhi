@@ -224,6 +224,11 @@ namespace nvrhi::validation
 
         IDevice* getDevice() override;
         const CommandListParameters& getDesc() override;
+
+        // [rlaw] BEGIN: Pipeline Query Support
+        void beginPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override { assert(requireOpenState()); m_CommandList->beginPipelineStatisticsQuery(query); }
+        void endPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override { assert(requireOpenState()); m_CommandList->endPipelineStatisticsQuery(query); }
+        // [rlaw] END: Pipeline Query Support
     };
 
     class DeviceWrapper : public RefCounter<IDevice>
@@ -301,6 +306,13 @@ namespace nvrhi::validation
         bool pollTimerQuery(ITimerQuery* query) override;
         float getTimerQueryTime(ITimerQuery* query) override;
         void resetTimerQuery(ITimerQuery* query) override;
+
+        // [rlaw] BEGIN: Pipeline Query Support
+        PipelineStatisticsQueryHandle createPipelineStatisticsQuery() override { return m_Device->createPipelineStatisticsQuery(); }
+        PipelineStatistics getPipelineStatistics(IPipelineStatisticsQuery* query) override { return m_Device->getPipelineStatistics(query); }
+        bool pollPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override { return m_Device->pollPipelineStatisticsQuery(query); }
+        void resetPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override { m_Device->resetPipelineStatisticsQuery(query); }
+        // [rlaw] END: Pipeline Query Support
 
         GraphicsAPI getGraphicsAPI() override;
 

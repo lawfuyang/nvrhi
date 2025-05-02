@@ -360,6 +360,16 @@ namespace nvrhi::d3d12
             it->fenceCounter = instance->submittedInstance;
         }
 
+        // [rlaw] BEGIN: Pipeline Query support
+        for (const auto& it : instance->referencedPipelineStatisticsQueries)
+        {
+            it->started = true;
+            it->resolved = false;
+            it->fence = pQueue->fence;
+            it->fenceCounter = instance->submittedInstance;
+        }
+        // [rlaw] END: Pipeline Query support
+
         m_StateTracker.commandListSubmitted();
 
         uint64_t submittedVersion = MakeVersion(instance->submittedInstance, m_Desc.queueType, true);

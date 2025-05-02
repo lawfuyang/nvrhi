@@ -117,6 +117,7 @@ namespace nvrhi::d3d12
         uint32_t shaderResourceViewHeapSize = 16384;
         uint32_t samplerHeapSize = 1024;
         uint32_t maxTimerQueries = 256;
+        uint32_t maxPipelineStatisticsQueries = 256; // [rlaw]: Pipeline Query support
 
         // If enabled and the device has the capability,
         // create RootSignatures with D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED 

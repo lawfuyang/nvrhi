@@ -142,6 +142,11 @@ namespace nvrhi::d3d12
         RefCountPtr<ID3D12QueryHeap> timerQueryHeap;
         RefCountPtr<Buffer> timerQueryResolveBuffer;
 
+        // [rlaw] BEGIN: Pipeline Query support
+        RefCountPtr<ID3D12QueryHeap> pipelineStatisticsQueryHeap;
+        RefCountPtr<Buffer> pipelineStatisticsQueryResolveBuffer;
+        // [rlaw] END: Pipeline Query support
+
         bool logBufferLifetime = false;
         IMessageCallback* messageCallback = nullptr;
         void error(const std::string& message) const;
@@ -193,6 +198,7 @@ namespace nvrhi::d3d12
         StaticDescriptorHeap shaderResourceViewHeap;
         StaticDescriptorHeap samplerHeap;
         utils::BitSetAllocator timerQueries;
+        utils::BitSetAllocator pipelineStatisticsQueries; // [rlaw]: Pipeline Query support
 #ifdef NVRHI_WITH_RTXMU
         std::mutex asListMutex;
         std::vector<uint64_t> asBuildsCompleted;
@@ -498,6 +504,31 @@ namespace nvrhi::d3d12
     private:
         DeviceResources& m_Resources;
     };
+
+    // [rlaw] BEGIN: Pipeline Query support
+    class PipelineStatisticsQuery : public RefCounter<IPipelineStatisticsQuery>
+    {
+    public:
+        uint32_t queryIndex = 0;
+
+        RefCountPtr<ID3D12Fence> fence;
+        uint64_t fenceCounter = 0;
+
+        bool started = false;
+        bool resolved = false;
+        PipelineStatistics statistics;
+
+        PipelineStatisticsQuery(DeviceResources& resources)
+            : m_Resources(resources)
+        {
+        }
+
+        ~PipelineStatisticsQuery() override;
+
+    private:
+        DeviceResources& m_Resources;
+    };
+    // [rlaw] END: Pipeline Query support
 
     class BindingLayout : public RefCounter<IBindingLayout>
     {
@@ -942,6 +973,7 @@ namespace nvrhi::d3d12
         std::vector<RefCountPtr<StagingTexture>> referencedStagingTextures;
         std::vector<RefCountPtr<Buffer>> referencedStagingBuffers;
         std::vector<RefCountPtr<TimerQuery>> referencedTimerQueries;
+        std::vector<RefCountPtr<PipelineStatisticsQuery>> referencedPipelineStatisticsQueries; // [rlaw]: Pipeline Query support
 #ifdef NVRHI_WITH_RTXMU
         std::vector<uint64_t> rtxmuBuildIds;
         std::vector<uint64_t> rtxmuCompactionIds;
@@ -1058,6 +1090,11 @@ namespace nvrhi::d3d12
 
         void setComputeBindings(const BindingSetVector& bindings, uint32_t bindingUpdateMask, IBuffer* indirectParams, bool updateIndirectParams, const RootSignature* rootSignature);
         void setGraphicsBindings(const BindingSetVector& bindings, uint32_t bindingUpdateMask, IBuffer* indirectParams, bool updateIndirectParams, const RootSignature* rootSignature);
+
+        // [rlaw] BEGIN: Pipeline Query support
+        void beginPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
+        void endPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
+        // [rlaw] END: Pipeline Query support
         
     private:
         const Context& m_Context;
@@ -1187,6 +1224,13 @@ namespace nvrhi::d3d12
         bool pollTimerQuery(ITimerQuery* query) override;
         float getTimerQueryTime(ITimerQuery* query) override;
         void resetTimerQuery(ITimerQuery* query) override;
+
+        // [rlaw] BEGIN: Pipeline Query support
+        PipelineStatisticsQueryHandle createPipelineStatisticsQuery() override;
+        PipelineStatistics getPipelineStatistics(IPipelineStatisticsQuery* query) override;
+        bool pollPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
+        void resetPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
+        // [rlaw] END: Pipeline Query support
 
         GraphicsAPI getGraphicsAPI() override;
 
