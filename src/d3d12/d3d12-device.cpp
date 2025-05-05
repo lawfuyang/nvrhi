@@ -310,8 +310,14 @@ namespace nvrhi::d3d12
 
         // [rlaw] BEGIN
 #ifdef NVRHI_D3D12_WITH_D3D12MA
+        using namespace D3D12MA;
+
         D3D12MA::ALLOCATOR_DESC allocatorDesc{};
-        allocatorDesc.Flags = D3D12MA::ALLOCATOR_FLAG_DEFAULT_POOLS_NOT_ZEROED;
+    #if defined(D3D12MA_RECOMMENDED_ALLOCATOR_FLAGS)
+        allocatorDesc.Flags = (ALLOCATOR_FLAGS)D3D12MA_RECOMMENDED_ALLOCATOR_FLAGS;
+    #else
+        allocatorDesc.Flags = (ALLOCATOR_FLAGS)(ALLOCATOR_FLAG_DEFAULT_POOLS_NOT_ZEROED | ALLOCATOR_FLAG_MSAA_TEXTURES_ALWAYS_COMMITTED);
+    #endif
         allocatorDesc.pDevice = m_Context.device.Get();
 
         extern IDXGIAdapter1* g_DXGIAdapter;
