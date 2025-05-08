@@ -125,8 +125,13 @@ namespace nvrhi::vulkan
         vk::PhysicalDeviceFragmentShadingRatePropertiesKHR shadingRateProperties;
         vk::PhysicalDeviceOpacityMicromapPropertiesEXT opacityMicromapProperties;
         vk::PhysicalDeviceRayTracingInvocationReorderPropertiesNV nvRayTracingInvocationReorderProperties;
+        vk::PhysicalDeviceSubgroupProperties subgroupProperties;
         
         vk::PhysicalDeviceProperties2 deviceProperties2;
+
+        // Subgroup properties are provided by core Vulkan 1.1
+        subgroupProperties.pNext = pNext;
+        pNext = &subgroupProperties;
 
         if (m_Context.extensions.KHR_acceleration_structure)
         {
@@ -175,6 +180,7 @@ namespace nvrhi::vulkan
         m_Context.shadingRateProperties = shadingRateProperties;
         m_Context.opacityMicromapProperties = opacityMicromapProperties;
         m_Context.nvRayTracingInvocationReorderProperties = nvRayTracingInvocationReorderProperties;
+        m_Context.subgroupProperties = subgroupProperties;
         m_Context.messageCallback = desc.errorCB;
 
         if (m_Context.extensions.EXT_opacity_micromap && !m_Context.extensions.KHR_synchronization2)
@@ -353,6 +359,22 @@ namespace nvrhi::vulkan
         case Feature::CopyQueue:
             return (m_Queues[uint32_t(CommandQueue::Copy)] != nullptr);
         case Feature::ConstantBufferRanges:
+            return true;
+        case Feature::WaveLaneCountMinMax:
+            if (m_Context.subgroupProperties.subgroupSize == 0)
+                return false;
+            if (pInfo)
+            {
+                if (infoSize == sizeof(WaveLaneCountMinMaxFeatureInfo))
+                {
+                    auto* pWaveLaneCountMinMaxInfo = reinterpret_cast<WaveLaneCountMinMaxFeatureInfo*>(pInfo);
+                    // Only one subgroup/wave size is supported on Vulkan
+                    pWaveLaneCountMinMaxInfo->minWaveLaneCount = m_Context.subgroupProperties.subgroupSize;
+                    pWaveLaneCountMinMaxInfo->maxWaveLaneCount = m_Context.subgroupProperties.subgroupSize;
+                }
+                else
+                    utils::NotSupported();
+            }
             return true;
         default:
             return false;

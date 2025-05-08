@@ -103,6 +103,9 @@ namespace nvrhi::d3d12
         case PrimitiveType::PatchList:
             desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH;
             break;
+        default:
+            m_Context.error("PrimitiveType unsupported by this device");
+            return nullptr;
         }
 
         desc.DSVFormat = getDxgiFormatMapping(fbinfo.depthFormat).rtvFormat;

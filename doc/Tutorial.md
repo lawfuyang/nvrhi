@@ -119,7 +119,7 @@ nvrhi::VertexAttributeDesc attributes[] = {
         .setElementStride(sizeof(Vertex)),
 };
 
-nvrhi::InputLayoutHandle = inputLayout = nvrhiDevice->createInputLayout(
+nvrhi::InputLayoutHandle inputLayout = nvrhiDevice->createInputLayout(
     attributes, uint32_t(std::size(attributes)), vertexShader);
 
 nvrhi::ShaderHandle pixelShader = nvrhiDevice->createShader(
