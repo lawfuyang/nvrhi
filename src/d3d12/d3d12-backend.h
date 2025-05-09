@@ -87,11 +87,7 @@
 // [rlaw] BEGIN
 #ifdef NVRHI_D3D12_WITH_D3D12MA
 
-#if !defined(D3D12MA_INCLUDE_DIR)
-    #error "D3D12MA_INCLUDE_DIR must be defined"
-#endif
-
-#include D3D12MA_INCLUDE_DIR
+#include "../thirdparty/D3D12MA/include/D3D12MemAlloc.h"
 #endif
 // [rlaw] END
 

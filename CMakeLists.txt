@@ -38,6 +38,8 @@ option(NVRHI_WITH_VULKAN "Build the NVRHI Vulkan backend" ON)
 option(NVRHI_WITH_RTXMU "Use RTXMU for acceleration structure management" OFF)
 option(NVRHI_WITH_AFTERMATH "Include Aftermath support (requires NSight Aftermath SDK)" OFF)
 
+option(NVRHI_D3D12_WITH_D3D12MA "" ON) # [rlaw]: D3D12MA
+
 cmake_dependent_option(NVRHI_WITH_NVAPI "Include NVAPI support (requires NVAPI SDK)" OFF "WIN32" OFF)
 cmake_dependent_option(NVRHI_WITH_DX11 "Build the NVRHI D3D11 backend" ON "WIN32" OFF)
 cmake_dependent_option(NVRHI_WITH_DX12 "Build the NVRHI D3D12 backend" ON "WIN32" OFF)
@@ -288,6 +290,14 @@ if (NVRHI_WITH_DX12)
         target_link_libraries(${nvrhi_d3d12_target} PUBLIC aftermath)
     endif()
     target_compile_definitions(${nvrhi_d3d12_target} PRIVATE NVRHI_WITH_AFTERMATH=$<BOOL:${NVRHI_WITH_AFTERMATH}>)
+	
+	# [rlaw] BEGIN: D3D12MA
+	if (NVRHI_D3D12_WITH_D3D12MA)
+		add_subdirectory(thirdparty/D3D12MA)
+		target_link_libraries(${nvrhi_d3d12_target} PUBLIC D3D12MemoryAllocator)
+		target_compile_definitions(${nvrhi_d3d12_target} PRIVATE NVRHI_D3D12_WITH_D3D12MA=$<BOOL:${NVRHI_D3D12_WITH_D3D12MA}>)
+	endif()
+	# [rlaw] END
 endif()
 
 if (NVRHI_WITH_VULKAN)
