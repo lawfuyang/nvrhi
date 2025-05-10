@@ -2291,6 +2291,11 @@ namespace nvrhi
     class IBindingSet : public IResource
     {
     public:
+        // [rlaw] BEGIN: HLSL Dynamic Resources/VK_EXT_mutable_descriptor_type
+        uint32_t m_ResourceDescriptorHeapStartIdx = ~0u;
+        uint32_t m_SamplerDescriptorHeapStartIdx = ~0u;
+        // [rlaw] END: HLSL Dynamic Resources/VK_EXT_mutable_descriptor_type
+
         [[nodiscard]] virtual const BindingSetDesc* getDesc() const = 0;  // returns nullptr for descriptor tables
         [[nodiscard]] virtual IBindingLayout* getLayout() const = 0;
     };
