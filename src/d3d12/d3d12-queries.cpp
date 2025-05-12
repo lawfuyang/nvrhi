@@ -272,13 +272,12 @@ namespace nvrhi::d3d12
                 query->fence = nullptr;
             }
 
-            const D3D12_RANGE bufferReadRange = { query->queryIndex * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1), (query->queryIndex + 1) * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1) };
             D3D12_QUERY_DATA_PIPELINE_STATISTICS1* data;
-            const HRESULT res = m_Context.pipelineStatisticsQueryResolveBuffer->resource->Map(0, &bufferReadRange, (void**)&data);
+            const HRESULT res = m_Context.pipelineStatisticsQueryResolveBuffer->resource->Map(0, nullptr, (void**)&data);
             assert(SUCCEEDED(res));
 
             query->resolved = true;
-            memcpy(&query->statistics, data, sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1));
+            memcpy(&query->statistics, data + query->queryIndex, sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1));
 
             m_Context.pipelineStatisticsQueryResolveBuffer->resource->Unmap(0, nullptr);
         }
