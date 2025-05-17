@@ -1119,6 +1119,14 @@ namespace nvrhi::vulkan
         float getTimerQueryTime(ITimerQuery* query) override;
         void resetTimerQuery(ITimerQuery* query) override;
 
+        // [rlaw] BEGIN: Pipeline Query support
+        // TODO
+        PipelineStatisticsQueryHandle createPipelineStatisticsQuery() override { return {}; }
+        PipelineStatistics getPipelineStatistics(IPipelineStatisticsQuery* query) override { return {}; }
+        bool pollPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override { return {}; }
+        void resetPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override {}
+        // [rlaw] END: Pipeline Query support
+
         GraphicsAPI getGraphicsAPI() override;
 
         FramebufferHandle createFramebuffer(const FramebufferDesc& desc) override;
@@ -1234,6 +1242,7 @@ namespace nvrhi::vulkan
 
         void setMeshletState(const MeshletState& state) override;
         void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;
+        void dispatchMeshIndirect(uint32_t offsetBytes) override {} // [rlaw]: support dispatchMeshIndirect. TODO
 
         void setRayTracingState(const rt::State& state) override;
         void dispatchRays(const rt::DispatchRaysArguments& args) override;
@@ -1277,6 +1286,11 @@ namespace nvrhi::vulkan
         const CommandListParameters& getDesc() override { return m_CommandListParameters; }
 
         TrackedCommandBufferPtr getCurrentCmdBuf() const { return m_CurrentCmdBuf; }
+
+        // [rlaw] BEGIN: Pipeline Query support. TODO
+        void beginPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override {}
+        void endPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override {}
+        // [rlaw] END: Pipeline Query support
 
     private:
         Device* m_Device;
