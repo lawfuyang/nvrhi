@@ -117,6 +117,7 @@ namespace nvrhi::vulkan
     vk::GeometryInstanceFlagsKHR convertInstanceFlags(rt::InstanceFlags instanceFlags);
     vk::Extent2D convertFragmentShadingRate(VariableShadingRate shadingRate);
     vk::FragmentShadingRateCombinerOpKHR convertShadingRateCombiner(ShadingRateCombiner combiner);
+    vk::DescriptorType convertResourceType(ResourceType type);
 
     void countSpecializationConstants(
         Shader* shader,
