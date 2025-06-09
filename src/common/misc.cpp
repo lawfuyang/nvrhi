@@ -51,6 +51,11 @@ namespace nvrhi
                 ret.depth = 1;
         }
 
+        // [rlaw] BEGIN: Ensure that the width and height are at least the block size for compressed formats
+        ret.width = std::max(ret.width, (uint32_t)getFormatInfo(desc.format).blockSize);
+        ret.height = std::max(ret.height, (uint32_t)getFormatInfo(desc.format).blockSize);
+        // [rlaw] END
+
         return ret;
     }
         
