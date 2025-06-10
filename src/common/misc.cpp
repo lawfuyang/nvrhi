@@ -51,9 +51,21 @@ namespace nvrhi
                 ret.depth = 1;
         }
 
-        // [rlaw] BEGIN: Ensure that the width and height are at least the block size for compressed formats
-        ret.width = std::max(ret.width, (uint32_t)getFormatInfo(desc.format).blockSize);
-        ret.height = std::max(ret.height, (uint32_t)getFormatInfo(desc.format).blockSize);
+        // [rlaw] BEGIN
+        const FormatInfo& formatInfo = getFormatInfo(desc.format);
+        const uint32_t blockSize = formatInfo.blockSize;
+        const bool bIsCompressedFormat = formatInfo.blockSize != 1;
+
+        // ensure that the width and height are at least the block size for compressed formats
+        ret.width = std::max(ret.width, blockSize);
+        ret.height = std::max(ret.height, blockSize);
+
+        // If the texture is compressed, we need to round the width and height up to the nearest block size
+        if (bIsCompressedFormat)
+        {
+            ret.width = (ret.width + blockSize - 1) / blockSize * blockSize;
+            ret.height = (ret.height + blockSize - 1) / blockSize * blockSize;
+        }
         // [rlaw] END
 
         return ret;
