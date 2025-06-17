@@ -101,6 +101,7 @@ namespace nvrhi::d3d12
     typedef uint32_t RootParameterIndex;
     typedef uint32_t OptionalResourceState; // D3D12_RESOURCE_STATES + unknown value
 
+    constexpr RootParameterIndex c_InvalidRootParameterIndex = ~0u; // Used to skip mutable descriptor set
     constexpr DescriptorIndex c_InvalidDescriptorIndex = ~0u;
     constexpr OptionalResourceState c_ResourceStateUnknown = ~0u;
     

@@ -1292,9 +1292,15 @@ namespace nvrhi::validation
             anyErrors = true;
         }
 
-        if (desc.registerSpaces.empty())
+        if (desc.registerSpaces.empty() && desc.layoutType == BindlessLayoutDesc::LayoutType::Immutable)
         {
             errorStream << "Bindless layout has no register spaces assigned" << std::endl;
+            anyErrors = true;
+        }
+
+        if (!desc.registerSpaces.empty() && desc.layoutType != BindlessLayoutDesc::LayoutType::Immutable)
+        {
+            errorStream << "Bindless mutable layout has register spaces assigned" << std::endl;
             anyErrors = true;
         }
 
@@ -1364,8 +1370,68 @@ namespace nvrhi::validation
         return false;
     }
 
-    bool DeviceWrapper::validateBindingSetItem(const BindingSetItem& binding, bool isDescriptorTable, std::stringstream& errorStream)
+    bool DeviceWrapper::validateBindingSetItem(const BindingSetItem& binding, IDescriptorTable* pOptDescriptorTable, std::stringstream& errorStream)
     {
+        bool isDescriptorTable = pOptDescriptorTable != nullptr;
+        IBindingLayout* pBindingLayout = pOptDescriptorTable ? pOptDescriptorTable->getLayout() : nullptr;
+        const BindlessLayoutDesc* pBindlessLayoutDesc = pBindingLayout ? pBindingLayout->getBindlessDesc() : nullptr;
+
+        if (pBindlessLayoutDesc)
+        {
+            if (pBindlessLayoutDesc->layoutType == BindlessLayoutDesc::LayoutType::MutableSrvUavCbv)
+            {
+                switch (binding.type)
+                {
+                case ResourceType::None:
+                case ResourceType::Texture_SRV:
+                case ResourceType::Texture_UAV:
+                case ResourceType::TypedBuffer_SRV:
+                case ResourceType::TypedBuffer_UAV:
+                case ResourceType::StructuredBuffer_SRV:
+                case ResourceType::StructuredBuffer_UAV:
+                case ResourceType::RawBuffer_SRV:
+                case ResourceType::RawBuffer_UAV:
+                case ResourceType::ConstantBuffer:
+                    // Valid descriptors
+                    break;
+                case ResourceType::Sampler:
+                    errorStream << "ResourceType::Sampler is not allowed for BindlessLayoutDesc::LayoutType::MutableSrvUavCbv." << std::endl;
+                    return false;
+                case ResourceType::SamplerFeedbackTexture_UAV:
+                    errorStream << "ResourceType::SamplerFeedbackTexture_UAV is not allowed for bindless layouts with LayoutType::MutableSrvUavCbv." << std::endl;
+                    return false;
+                case ResourceType::VolatileConstantBuffer:
+                    errorStream << "ResourceType::VolatileConstantBuffer is not allowed for bindless layouts with LayoutType::MutableSrvUavCbv." << std::endl;
+                    return false;
+                case ResourceType::PushConstants:
+                    errorStream << "ResourceType::PushConstants is not allowed for bindless layouts with LayoutType::MutableSrvUavCbv." << std::endl;
+                    return false;
+                case ResourceType::RayTracingAccelStruct:
+                    errorStream << "ResourceType::RayTracingAccelStruct is not allowed for bindless layouts with LayoutType::MutableSrvUavCbv." << std::endl;
+                    return false;
+                default:
+                    // Invalid resource types will be dealt with later in this function.
+                    break;
+                }
+            }
+            else if (pBindlessLayoutDesc->layoutType == BindlessLayoutDesc::LayoutType::MutableCounters)
+            {
+                if (binding.type != ResourceType::StructuredBuffer_UAV)
+                {
+                    errorStream << "Only ResourceType::StructuredBuffer_UAV can be used for bindless layouts with LayoutType::MutableCounters." << std::endl;
+                    return false;
+                }
+            }
+            else if (pBindlessLayoutDesc->layoutType == BindlessLayoutDesc::LayoutType::MutableSampler)
+            {
+                if (binding.type != ResourceType::Sampler)
+                {
+                    errorStream << "Only ResourceType::Sampler can be used for bindless layouts with LayoutType::MutableSampler." << std::endl;
+                    return false;
+                }
+            }
+        }
+
         switch (binding.type)
         {
         case ResourceType::None:
@@ -1650,7 +1716,7 @@ namespace nvrhi::validation
 
         for (size_t index = 0; index < desc.bindings.size(); index++)
         {
-            if (!validateBindingSetItem(desc.bindings[index], false, errorStream))
+            if (!validateBindingSetItem(desc.bindings[index], nullptr, errorStream))
                 anyErrors = true;
         }
 
@@ -1690,7 +1756,7 @@ namespace nvrhi::validation
     {
         std::stringstream errorStream;
         
-        if (!validateBindingSetItem(item, true, errorStream))
+        if (!validateBindingSetItem(item, descriptorTable, errorStream))
         {
             error(errorStream.str());
             return false;

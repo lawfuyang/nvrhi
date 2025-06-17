@@ -921,7 +921,7 @@ namespace nvrhi
     enum class BlendOp : uint8_t
     {
         Add = 1,
-        Subrtact = 2,
+        Subtract = 2,
         ReverseSubtract = 3,
         Min = 4,
         Max = 5
@@ -1990,15 +1990,43 @@ namespace nvrhi
     // with the table type (SRV or UAV) derived from the resource type assigned to each space.
     struct BindlessLayoutDesc
     {
+
+        // BindlessDescriptorType bridges the DX12 and Vulkan in supporting HLSL ResourceDescriptorHeap and SamplerDescriptorHeap
+        // For DX12: 
+        // - MutableSrvUavCbv, MutableCounters will enable D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED for the Root Signature
+        // - MutableSampler will enable D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED for the Root Signature
+        // - The BindingLayout will be ignored in terms of setting a descriptor set. DescriptorIndexing should use GetDescriptorIndexInHeap()
+        // For Vulkan:
+        // - The type corresponds to the SPIRV bindings which map to ResourceDescriptorHeap and SamplerDescriptorHeap
+        // - The shader needs to be compiled with the same descriptor set index as is passed into setState
+        // https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#resourcedescriptorheaps-samplerdescriptorheaps
+        enum class LayoutType
+        {
+            Immutable = 0,      // Must use registerSpaces to define a fixed descriptor type
+
+            MutableSrvUavCbv,   // Corresponds to SPIRV binding -fvk-bind-resource-heap (Counter resources ResourceDescriptorHeap)
+                                // Valid descriptor types: Texture_SRV, Texture_UAV, TypedBuffer_SRV, TypedBuffer_UAV,
+                                // StructuredBuffer_SRV, StructuredBuffer_UAV, RawBuffer_SRV, RawBuffer_UAV, ConstantBuffer
+
+            MutableCounters,    // Corresponds to SPIRV binding -fvk-bind-counter-heap (Counter resources accessed via ResourceDescriptorHeap)
+                                // Valid descriptor types: StructuredBuffer_UAV
+
+            MutableSampler,     // Corresponds to SPIRV binding -fvk-bind-sampler-heap (SamplerDescriptorHeap)
+                                // Valid descriptor types: Sampler
+        };
+
         ShaderType visibility = ShaderType::None;
         uint32_t firstSlot = 0;
         uint32_t maxCapacity = 0;
         static_vector<BindingLayoutItem, c_MaxBindlessRegisterSpaces> registerSpaces;
 
+        LayoutType layoutType = LayoutType::Immutable;
+
         BindlessLayoutDesc& setVisibility(ShaderType value) { visibility = value; return *this; }
         BindlessLayoutDesc& setFirstSlot(uint32_t value) { firstSlot = value; return *this; }
         BindlessLayoutDesc& setMaxCapacity(uint32_t value) { maxCapacity = value; return *this; }
         BindlessLayoutDesc& addRegisterSpace(const BindingLayoutItem& value) { registerSpaces.push_back(value); return *this; }
+        BindlessLayoutDesc& setLayoutType(LayoutType value) { layoutType = value; return *this; }
     };
 
     class IBindingLayout : public IResource
