@@ -416,7 +416,7 @@ namespace nvrhi::d3d12
 
         if (updateShadingRate || updateFramebuffer)
         {
-            auto framebufferDesc = framebuffer->getDesc();
+            const auto& framebufferDesc = framebuffer->getDesc();
             bool shouldEnableVariableRateShading = framebufferDesc.shadingRateAttachment.valid() && state.shadingRateState.enabled;
             bool variableRateShadingCurrentlyEnabled = m_CurrentGraphicsStateValid
                 && m_CurrentGraphicsState.framebuffer->getDesc().shadingRateAttachment.valid() && m_CurrentGraphicsState.shadingRateState.enabled;

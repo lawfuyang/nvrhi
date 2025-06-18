@@ -1065,7 +1065,7 @@ namespace nvrhi::validation
             return false;
         }
 
-        const auto fbDesc = fb->getDesc();
+        const auto& fbDesc = fb->getDesc();
 
         if (renderState.depthStencilState.depthTestEnable ||
             renderState.depthStencilState.stencilEnable)
