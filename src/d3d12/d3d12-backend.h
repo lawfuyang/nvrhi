@@ -437,6 +437,12 @@ namespace nvrhi::d3d12
 
         Object getNativeObject(ObjectType objectType) override;
 
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        D3D12MA::Allocation* m_Allocation = nullptr;
+    #endif
+    // [rlaw] END
+
     private:
         const Context& m_Context;
         DeviceResources& m_Resources;
