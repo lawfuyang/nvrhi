@@ -1139,7 +1139,8 @@ namespace nvrhi::d3d12
                         setResourceStatesForBindingSet(bindingSet);
                     }
                 }
-                else if (updateThisSet)
+                //else if (updateThisSet)
+                else if (rootParameterOffset != c_InvalidRootParameterIndex) // [rlaw]: fix crash. use same logic as in setComputeBindings
                 {
                     DescriptorTable* descriptorTable = checked_cast<DescriptorTable*>(_bindingSet);
 
