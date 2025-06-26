@@ -430,6 +430,12 @@ namespace nvrhi::d3d12
             TextureStateExtension::isSamplerFeedback = true;
         }
 
+        // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+        ~SamplerFeedbackTexture() override;
+    #endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
+        // [rlaw] END
+
         const SamplerFeedbackTextureDesc& getDesc() const override { return desc; }
         TextureHandle getPairedTexture() override { return pairedTexture; }
 

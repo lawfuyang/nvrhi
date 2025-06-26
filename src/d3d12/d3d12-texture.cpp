@@ -1025,7 +1025,20 @@ namespace nvrhi::d3d12
         return SamplerFeedbackTextureHandle::Create(texture);
     }
 
-    void SamplerFeedbackTexture::createUAV(size_t descriptor) const
+    // [rlaw] BEGIN
+    #ifdef NVRHI_D3D12_WITH_D3D12MA
+    SamplerFeedbackTexture::~SamplerFeedbackTexture()
+    {
+        if (m_Allocation)
+        {
+            m_Allocation->Release();
+            m_Allocation = nullptr;
+        }
+    }
+    #endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
+    // [rlaw] END
+
+void SamplerFeedbackTexture::createUAV(size_t descriptor) const
     {
         ID3D12Resource* pairedResource = checked_cast<Texture*>(pairedTexture.Get())->resource;
 
