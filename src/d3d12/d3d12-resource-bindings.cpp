@@ -718,11 +718,11 @@ namespace nvrhi::d3d12
 
         if (m_HeapDirectlyIndexedEnabled)
         {
-            //if (usesSamplerDescriptorHeap) // [rlaw]: temporarily set 'DIRECTLY_INDEXED' flag on non-bindless layout as well while I slowly convert all Renderers
+            if (usesSamplerDescriptorHeap)
             {
                 rsDesc.Desc_1_1.Flags |= D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED;
             }
-            //if (usesResourceDescriptorHeap) // [rlaw]: temporarily set 'DIRECTLY_INDEXED' flag on non-bindless layout as well while I slowly convert all Renderers
+            if (usesResourceDescriptorHeap)
             {
                 rsDesc.Desc_1_1.Flags |= D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
             }
