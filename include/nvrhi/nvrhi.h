@@ -535,7 +535,10 @@ namespace nvrhi
         // TODO: on D3D12, the views might become invalid later if the view heap is grown/reallocated, we should do something about that.
         virtual Object getNativeView(ObjectType objectType, Format format = Format::UNKNOWN, TextureSubresourceSet subresources = AllSubresources, TextureDimension dimension = TextureDimension::Unknown, bool isReadOnlyDSV = false) = 0;
 
-        uint32_t indexInHeap = UINT_MAX; // [rlaw]: store bindless descriptor table heap index here, because im lazy
+        // [rlaw] BEGIN: store bindless descriptor table index here, because im lazy
+        uint32_t srvIndexInTable = UINT_MAX;
+        uint32_t uavIndexInTable = UINT_MAX;
+        // [rlaw] END
     };
     typedef RefCountPtr<ITexture> TextureHandle;
 
@@ -617,7 +620,10 @@ namespace nvrhi
         [[nodiscard]] virtual const SamplerFeedbackTextureDesc& getDesc() const = 0;
         virtual TextureHandle getPairedTexture() = 0;
 
-        uint32_t indexInHeap = UINT_MAX; // [rlaw]: store bindless descriptor table heap index here, because im lazy
+        // [rlaw] BEGIN: store bindless descriptor table index here, because im lazy
+        uint32_t srvIndexInTable = UINT_MAX;
+        uint32_t uavIndexInTable = UINT_MAX;
+        // [rlaw] END
     };
     typedef RefCountPtr<ISamplerFeedbackTexture> SamplerFeedbackTextureHandle;
 
@@ -743,7 +749,10 @@ namespace nvrhi
         [[nodiscard]] virtual const BufferDesc& getDesc() const = 0;
         [[nodiscard]] virtual GpuVirtualAddress getGpuVirtualAddress() const = 0;
 
-        uint32_t indexInHeap = UINT_MAX; // [rlaw]: store bindless descriptor table heap index here, because im lazy
+        // [rlaw] BEGIN: store bindless descriptor table index here, because im lazy
+        uint32_t srvIndexInTable = UINT_MAX;
+        uint32_t uavIndexInTable = UINT_MAX;
+        // [rlaw] END
     };
 
     typedef RefCountPtr<IBuffer> BufferHandle;
