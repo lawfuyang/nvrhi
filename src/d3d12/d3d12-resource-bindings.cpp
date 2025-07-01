@@ -133,8 +133,6 @@ namespace nvrhi::d3d12
             }
 
             m_Resources.samplerHeap.copyToShaderVisibleHeap(descriptorTableBaseIndex, layout->descriptorTableSizeSamplers);
-
-            m_SamplerDescriptorHeapStartIdx = descriptorTableBaseIndex; // [rlaw]: HLSL Dynamic Resources/VK_EXT_mutable_descriptor_type
         }
 
         if (layout->descriptorTableSizeSRVetc > 0)
@@ -340,8 +338,6 @@ namespace nvrhi::d3d12
             }
 
             m_Resources.shaderResourceViewHeap.copyToShaderVisibleHeap(descriptorTableBaseIndex, layout->descriptorTableSizeSRVetc);
-
-            m_ResourceDescriptorHeapStartIdx = descriptorTableBaseIndex; // [rlaw]: HLSL Dynamic Resources/VK_EXT_mutable_descriptor_type
         }
     }
 

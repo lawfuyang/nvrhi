@@ -535,10 +535,7 @@ namespace nvrhi
         // TODO: on D3D12, the views might become invalid later if the view heap is grown/reallocated, we should do something about that.
         virtual Object getNativeView(ObjectType objectType, Format format = Format::UNKNOWN, TextureSubresourceSet subresources = AllSubresources, TextureDimension dimension = TextureDimension::Unknown, bool isReadOnlyDSV = false) = 0;
 
-        // [rlaw] BEGIN: store bindless descriptor table index here, because im lazy
-        uint32_t srvIndexInTable = UINT_MAX;
-        uint32_t uavIndexInTable = UINT_MAX;
-        // [rlaw] END
+        uint32_t srvIndexInTable = UINT_MAX; // [rlaw] store bindless descriptor table index here, because im lazy
     };
     typedef RefCountPtr<ITexture> TextureHandle;
 
@@ -620,10 +617,7 @@ namespace nvrhi
         [[nodiscard]] virtual const SamplerFeedbackTextureDesc& getDesc() const = 0;
         virtual TextureHandle getPairedTexture() = 0;
 
-        // [rlaw] BEGIN: store bindless descriptor table index here, because im lazy
-        uint32_t srvIndexInTable = UINT_MAX;
-        uint32_t uavIndexInTable = UINT_MAX;
-        // [rlaw] END
+        uint32_t srvIndexInTable = UINT_MAX; // [rlaw] store bindless descriptor table index here, because im lazy
     };
     typedef RefCountPtr<ISamplerFeedbackTexture> SamplerFeedbackTextureHandle;
 
@@ -748,11 +742,6 @@ namespace nvrhi
     public:
         [[nodiscard]] virtual const BufferDesc& getDesc() const = 0;
         [[nodiscard]] virtual GpuVirtualAddress getGpuVirtualAddress() const = 0;
-
-        // [rlaw] BEGIN: store bindless descriptor table index here, because im lazy
-        uint32_t srvIndexInTable = UINT_MAX;
-        uint32_t uavIndexInTable = UINT_MAX;
-        // [rlaw] END
     };
 
     typedef RefCountPtr<IBuffer> BufferHandle;
@@ -2375,11 +2364,6 @@ namespace nvrhi
     class IBindingSet : public IResource
     {
     public:
-        // [rlaw] BEGIN: HLSL Dynamic Resources/VK_EXT_mutable_descriptor_type
-        uint32_t m_ResourceDescriptorHeapStartIdx = ~0u;
-        uint32_t m_SamplerDescriptorHeapStartIdx = ~0u;
-        // [rlaw] END: HLSL Dynamic Resources/VK_EXT_mutable_descriptor_type
-
         [[nodiscard]] virtual const BindingSetDesc* getDesc() const = 0;  // returns nullptr for descriptor tables
         [[nodiscard]] virtual IBindingLayout* getLayout() const = 0;
     };
