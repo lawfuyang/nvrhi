@@ -219,20 +219,20 @@ namespace nvrhi::vulkan
             .setDescriptorTypeCount(uint32_t(sizeof(samplerTypes) / sizeof(samplerTypes[0])))
             .setPDescriptorTypes(samplerTypes);
 
+        auto pMutableDescriptorTypeLists =
+            bindlessDesc.layoutType == BindlessLayoutDesc::LayoutType::MutableCounters ? &counterTypesList :
+            bindlessDesc.layoutType == BindlessLayoutDesc::LayoutType::MutableSampler ? &samplerTypesList :
+            &cbvSrvUavTypesList;
+
+        auto mutableDescriptorTypeCreateInfo = vk::MutableDescriptorTypeCreateInfoEXT()
+            .setMutableDescriptorTypeListCount(1)
+            .setPMutableDescriptorTypeLists(pMutableDescriptorTypeLists)
+            .setPNext(&extendedInfo);
+
         if (isBindless)
         {
             if (bindlessDesc.layoutType != BindlessLayoutDesc::LayoutType::Immutable)
             {
-                auto pMutableDescriptorTypeLists = 
-                bindlessDesc.layoutType == BindlessLayoutDesc::LayoutType::MutableCounters ? &counterTypesList :
-                bindlessDesc.layoutType == BindlessLayoutDesc::LayoutType::MutableSampler ? &samplerTypesList :
-                    &cbvSrvUavTypesList;
-
-                auto mutableDescriptorTypeCreateInfo = vk::MutableDescriptorTypeCreateInfoEXT()
-                    .setMutableDescriptorTypeListCount(1)
-                    .setPMutableDescriptorTypeLists(pMutableDescriptorTypeLists)
-                    .setPNext(&extendedInfo);
-
                 descriptorSetLayoutInfo.setPNext(&mutableDescriptorTypeCreateInfo);
             }
             else
