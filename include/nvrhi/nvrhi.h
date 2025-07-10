@@ -534,8 +534,6 @@ namespace nvrhi
         // Similar to getNativeObject, returns a native view for a specified set of subresources. Returns nullptr if unavailable.
         // TODO: on D3D12, the views might become invalid later if the view heap is grown/reallocated, we should do something about that.
         virtual Object getNativeView(ObjectType objectType, Format format = Format::UNKNOWN, TextureSubresourceSet subresources = AllSubresources, TextureDimension dimension = TextureDimension::Unknown, bool isReadOnlyDSV = false) = 0;
-
-        uint32_t srvIndexInTable = UINT_MAX; // [rlaw] store bindless descriptor table index here, because im lazy
     };
     typedef RefCountPtr<ITexture> TextureHandle;
 
@@ -616,8 +614,6 @@ namespace nvrhi
     public:
         [[nodiscard]] virtual const SamplerFeedbackTextureDesc& getDesc() const = 0;
         virtual TextureHandle getPairedTexture() = 0;
-
-        uint32_t srvIndexInTable = UINT_MAX; // [rlaw] store bindless descriptor table index here, because im lazy
     };
     typedef RefCountPtr<ISamplerFeedbackTexture> SamplerFeedbackTextureHandle;
 
