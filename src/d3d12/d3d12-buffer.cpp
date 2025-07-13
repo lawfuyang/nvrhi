@@ -150,20 +150,36 @@ namespace nvrhi::d3d12
 
     // [rlaw]: D3D12MA
     #ifdef NVRHI_D3D12_WITH_D3D12MA
-    
-        D3D12MA::ALLOCATION_DESC allocDesc{};
-        allocDesc.Flags = D3D12MA::ALLOCATION_FLAG_WITHIN_BUDGET;
-        allocDesc.HeapType = heapProps.Type;
-        allocDesc.ExtraHeapFlags = heapFlags;
 
-        assert(m_Allocator);
-        HRESULT res = m_Allocator->CreateResource(
-            &allocDesc,
-            &resourceDesc,
-            convertResourceStates(d.initialState),
-            nullptr,
-            &buffer->m_Allocation,
-            IID_PPV_ARGS(&buffer->resource));
+        HRESULT res;
+
+        const bool bIsResolveReadbackBuffer = ((buffer->desc.cpuAccess == CpuAccessMode::Read) && (d.initialState == ResourceStates::ResolveDest));
+        if (!bIsResolveReadbackBuffer)
+        {
+            D3D12MA::ALLOCATION_DESC allocDesc{};
+            allocDesc.Flags = D3D12MA::ALLOCATION_FLAG_WITHIN_BUDGET;
+            allocDesc.HeapType = heapProps.Type;
+            allocDesc.ExtraHeapFlags = heapFlags;
+
+            assert(m_Allocator);
+            res = m_Allocator->CreateResource(
+                &allocDesc,
+                &resourceDesc,
+                convertResourceStates(d.initialState),
+                nullptr,
+                &buffer->m_Allocation,
+                IID_PPV_ARGS(&buffer->resource));
+        }
+        else
+        {
+            res = m_Context.device->CreateCommittedResource(
+                &heapProps,
+                heapFlags,
+                &resourceDesc,
+                initialState,
+                nullptr,
+                IID_PPV_ARGS(&buffer->resource));
+        }
 
     #else // NVRHI_D3D12_WITH_D3D12MA
 
