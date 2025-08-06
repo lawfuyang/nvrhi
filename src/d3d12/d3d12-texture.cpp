@@ -1446,6 +1446,79 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
         m_ActiveCommandList->commandList->CopyTextureRegion(&destCopyLocation, 0, 0, 0, &srcCopyLocation, nullptr);
     }
 
+    // [rlaw] BEGIN: Copies a single 2D or 3D region of texture data from CPU memory.
+    void CommandList::writeTexture(ITexture* _dst, const TextureSlice& destSlice, const void* data, size_t rowPitch, size_t depthPitch)
+    {
+        Texture* dst = checked_cast<Texture*>(_dst);
+
+        auto resolvedDstSlice = destSlice.resolve(dst->desc);
+
+        UINT dstSubresource = calcSubresource(resolvedDstSlice.mipLevel, resolvedDstSlice.arraySlice, 0, dst->desc.mipLevels, dst->desc.arraySize);
+
+        if (m_EnableAutomaticBarriers)
+        {
+            requireTextureState(dst, TextureSubresourceSet(resolvedDstSlice.mipLevel, 1, resolvedDstSlice.arraySlice, 1), ResourceStates::CopyDest);
+        }
+        commitBarriers();
+
+        // override resourceDesc to match the destination slice
+        D3D12_RESOURCE_DESC resourceDesc = dst->resource->GetDesc();
+        resourceDesc.MipLevels = 1;
+        resourceDesc.Width = destSlice.width;
+        resourceDesc.Height = destSlice.height;
+
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+        uint32_t numRows;
+        uint64_t rowSizeInBytes;
+        uint64_t totalBytes;
+
+        m_Context.device->GetCopyableFootprints(&resourceDesc, 0, 1, 0, &footprint, &numRows, &rowSizeInBytes, &totalBytes);
+
+        void* cpuVA;
+        ID3D12Resource* uploadBuffer;
+        size_t offsetInUploadBuffer;
+        if (!m_UploadManager.suballocateBuffer(totalBytes, nullptr, &uploadBuffer, &offsetInUploadBuffer, &cpuVA, nullptr,
+            m_RecordingVersion, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT))
+        {
+            m_Context.error("Couldn't suballocate an upload buffer");
+            return;
+        }
+        footprint.Offset = uint64_t(offsetInUploadBuffer);
+
+        assert(numRows <= footprint.Footprint.Height);
+
+        for (uint32_t depthSlice = 0; depthSlice < footprint.Footprint.Depth; depthSlice++)
+        {
+            for (uint32_t row = 0; row < numRows; row++)
+            {
+                void* destAddress = (char*)cpuVA + uint64_t(footprint.Footprint.RowPitch) * uint64_t(row + depthSlice * numRows);
+                const void* srcAddress = (const char*)data + rowPitch * row + depthPitch * depthSlice;
+                memcpy(destAddress, srcAddress, std::min(rowPitch, rowSizeInBytes));
+            }
+        }
+
+        m_Instance->referencedResources.push_back(dst);
+
+        D3D12_TEXTURE_COPY_LOCATION dstLocation;
+        dstLocation.pResource = dst->resource;
+        dstLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        dstLocation.SubresourceIndex = dstSubresource;
+
+        D3D12_TEXTURE_COPY_LOCATION srcCopyLocation;
+        srcCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        srcCopyLocation.PlacedFootprint = footprint;
+        srcCopyLocation.pResource = uploadBuffer;
+
+        if (uploadBuffer != m_CurrentUploadBuffer)
+        {
+            m_Instance->referencedNativeResources.push_back(uploadBuffer);
+            m_CurrentUploadBuffer = uploadBuffer;
+        }
+
+        m_ActiveCommandList->commandList->CopyTextureRegion(&dstLocation, resolvedDstSlice.x, resolvedDstSlice.y, resolvedDstSlice.z, &srcCopyLocation, nullptr);
+    }
+    // [rlaw] END
+
     void CommandList::resolveTexture(ITexture* _dest, const TextureSubresourceSet& dstSubresources, ITexture* _src, const TextureSubresourceSet& srcSubresources)
     {
         Texture* dest = checked_cast<Texture*>(_dest);

@@ -3160,6 +3160,10 @@ namespace nvrhi
         virtual void writeTexture(ITexture* dest, uint32_t arraySlice, uint32_t mipLevel, const void* data,
             size_t rowPitch, size_t depthPitch = 0) = 0;
 
+        // [rlaw] BEGIN: Copies a single 2D or 3D region of texture data from CPU memory.
+        virtual void writeTexture(ITexture* dest, const TextureSlice& destSlice, const void* data, size_t rowPitch, size_t depthPitch = 0) = 0;
+        // [rlaw] END
+
         // Performs a resolve operation to combine samples from some or all subresources of a multisample texture 'src'
         // into matching subresources of a non-multisample texture 'dest'. Both textures' formats must be of color type.
         // - DX11/12: Maps to a sequence of ResolveSubresource calls, one per subresource.

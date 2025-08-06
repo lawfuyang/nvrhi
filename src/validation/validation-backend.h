@@ -208,6 +208,13 @@ namespace nvrhi::validation
         void writeTexture(ITexture* dest, uint32_t arraySlice, uint32_t mipLevel, const void* data, size_t rowPitch, size_t depthPitch) override;
         void resolveTexture(ITexture* dest, const TextureSubresourceSet& dstSubresources, ITexture* src, const TextureSubresourceSet& srcSubresources) override;
 
+        // [rlaw] BEGIN: Copies a single 2D or 3D region of texture data from CPU memory.
+        void writeTexture(ITexture* dest, const TextureSlice& destSlice, const void* data, size_t rowPitch, size_t depthPitch) override
+        {
+            m_CommandList->writeTexture(dest, destSlice, data, rowPitch, depthPitch);
+        }
+        // [rlaw] END
+
         void writeBuffer(IBuffer* b, const void* data, size_t dataSize, uint64_t destOffsetBytes) override;
         void clearBufferUInt(IBuffer* b, uint32_t clearValue) override;
         void copyBuffer(IBuffer* dest, uint64_t destOffsetBytes, IBuffer* src, uint64_t srcOffsetBytes, uint64_t dataSizeBytes) override;
