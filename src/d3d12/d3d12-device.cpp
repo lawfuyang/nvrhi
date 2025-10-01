@@ -323,6 +323,7 @@ namespace nvrhi::d3d12
 #ifdef NVRHI_D3D12_WITH_D3D12MA
         D3D12MA::ALLOCATOR_DESC allocatorDesc{};
         allocatorDesc.Flags = (D3D12MA::ALLOCATOR_FLAGS)D3D12MA_RECOMMENDED_ALLOCATOR_FLAGS;
+        allocatorDesc.Flags |= D3D12MA::ALLOCATOR_FLAG_DONT_USE_TIGHT_ALIGNMENT; // TODO: it's causing alot of validation errors (alignment in resource desc not set to '0, etc)
         allocatorDesc.pDevice = m_Context.device.Get();
 
         extern IDXGIAdapter1* g_DXGIAdapter;
