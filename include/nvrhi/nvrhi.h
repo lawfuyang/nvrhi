@@ -1389,6 +1389,7 @@ namespace nvrhi
             None = 0,
             FastTrace = 1,
             FastBuild = 2,
+            AllowCompaction = 4
         };
 
         NVRHI_ENUM_CLASS_FLAG_OPERATORS(OpacityMicromapBuildFlags)
@@ -1982,10 +1983,11 @@ namespace nvrhi
     {
         ShaderType visibility = ShaderType::None;
 
-        // In DX12, this controls the register space of the bindings
-        // In Vulkan, DXC maps register spaces to descriptor sets by default, so this can be used to
+        // On DX11, the registerSpace is ignored, and all bindings are placed in the same space.
+        // On DX12, it controls the register space of the bindings.
+        // On Vulkan, DXC maps register spaces to descriptor sets by default, so this can be used to
         // determine the descriptor set index for the binding layout.
-        // In order to use this behaviour, you must set `registerSpaceIsDescriptorSet` to true.  See below.
+        // In order to use this behavior, you must set `registerSpaceIsDescriptorSet` to true. See below.
         uint32_t registerSpace = 0;
 
         // This flag controls the behavior for pipelines that use multiple binding layouts.
@@ -2006,6 +2008,8 @@ namespace nvrhi
         BindingLayoutDesc& setVisibility(ShaderType value) { visibility = value; return *this; }
         BindingLayoutDesc& setRegisterSpace(uint32_t value) { registerSpace = value; return *this; }
         BindingLayoutDesc& setRegisterSpaceIsDescriptorSet(bool value) { registerSpaceIsDescriptorSet = value; return *this; }
+        // Shortcut for .setRegisterSpace(value).setRegisterSpaceIsDescriptorSet(true)
+        BindingLayoutDesc& setRegisterSpaceAndDescriptorSet(uint32_t value) { registerSpace = value; registerSpaceIsDescriptorSet = true; return *this; }
         BindingLayoutDesc& addItem(const BindingLayoutItem& value) { bindings.push_back(value); return *this; }
         BindingLayoutDesc& setBindingOffsets(const VulkanBindingOffsets& value) { bindingOffsets = value; return *this; }
     };
@@ -2829,6 +2833,7 @@ namespace nvrhi
             uint32_t maxAttributeSize = sizeof(float) * 2; // typical case: float2 uv;
             uint32_t maxRecursionDepth = 1;
             int32_t hlslExtensionsUAV = -1;
+            bool allowOpacityMicromaps = false;
 
             PipelineDesc& addShader(const PipelineShaderDesc& value) { shaders.push_back(value); return *this; }
             PipelineDesc& addHitGroup(const PipelineHitGroupDesc& value) { hitGroups.push_back(value); return *this; }
@@ -2837,6 +2842,7 @@ namespace nvrhi
             PipelineDesc& setMaxAttributeSize(uint32_t value) { maxAttributeSize = value; return *this; }
             PipelineDesc& setMaxRecursionDepth(uint32_t value) { maxRecursionDepth = value; return *this; }
             PipelineDesc& setHlslExtensionsUAV(int32_t value) { hlslExtensionsUAV = value; return *this; }
+            PipelineDesc& setAllowOpacityMicromaps(bool value) { allowOpacityMicromaps = value; return *this; }
         };
 
         class IPipeline;

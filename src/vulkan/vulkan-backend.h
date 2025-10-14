@@ -37,8 +37,8 @@
 #include <rtxmu/VkAccelStructManager.h>
 #endif
 
-#if (VK_HEADER_VERSION < 230)
-#error "Vulkan SDK version 1.3.230 or later is required to compile NVRHI"
+#if (VK_HEADER_VERSION < 318)
+#error "Vulkan SDK version 1.4.318 or later is required to compile NVRHI"
 #endif
 
 namespace std
@@ -738,15 +738,8 @@ namespace nvrhi::vulkan
 
         bool managed = true;
 
-        explicit Framebuffer(const VulkanContext& context)
-            : m_Context(context)
-        { }
-
         const FramebufferDesc& getDesc() const override { return desc; }
         const FramebufferInfoEx& getFramebufferInfo() const override { return framebufferInfo; }
-
-    private:
-        const VulkanContext& m_Context;
     };
 
     class BindingLayout : public RefCounter<IBindingLayout>

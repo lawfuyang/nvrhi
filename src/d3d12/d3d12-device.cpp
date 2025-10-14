@@ -128,6 +128,9 @@ namespace nvrhi::d3d12
         {
             m_RayTracingSupported = m_Options5.RaytracingTier >= D3D12_RAYTRACING_TIER_1_0;
             m_TraceRayInlineSupported = m_Options5.RaytracingTier >= D3D12_RAYTRACING_TIER_1_1;
+#if NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP
+            m_OpacityMicromapSupported = m_Options5.RaytracingTier >= D3D12_RAYTRACING_TIER_1_2;
+#endif // NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP
 
 #ifdef NVRHI_WITH_RTXMU
             if (m_RayTracingSupported)
@@ -232,7 +235,11 @@ namespace nvrhi::d3d12
                 m_ShaderExecutionReorderingSupported = (ser & NVAPI_D3D12_RAYTRACING_THREAD_REORDERING_CAP_STANDARD) == NVAPI_D3D12_RAYTRACING_THREAD_REORDERING_CAP_STANDARD;
             }
         }
-
+#if NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP
+    #ifdef NVRHI_WITH_RTXMU
+        m_OpacityMicromapSupported = false; // RTXMU does not support OMMs
+    #endif
+#endif // NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP
 #if NVRHI_WITH_NVAPI_OPACITY_MICROMAP
 #ifdef NVRHI_WITH_RTXMU
         m_OpacityMicromapSupported = false; // RTXMU does not support OMMs
@@ -506,8 +513,7 @@ namespace nvrhi::d3d12
     void Device::getTextureTiling(ITexture* texture, uint32_t* numTiles, PackedMipDesc* desc, TileShape* tileShape, uint32_t* subresourceTilingsNum, SubresourceTiling* _subresourceTilings)
     {
         ID3D12Resource* resource = checked_cast<Texture*>(texture)->resource;
-        D3D12_RESOURCE_DESC resourceDesc = resource->GetDesc();
-
+        
         D3D12_PACKED_MIP_INFO packedMipDesc = {};
         D3D12_TILE_SHAPE standardTileShapeForNonPackedMips = {};
         D3D12_SUBRESOURCE_TILING subresourceTilings[16];

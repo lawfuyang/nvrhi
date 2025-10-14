@@ -943,7 +943,7 @@ namespace nvrhi::d3d12
         textureDesc.initialState = desc.initialState;
         textureDesc.keepInitialState = desc.keepInitialState;
 
-        SamplerFeedbackTexture* texture = new SamplerFeedbackTexture(m_Context, m_Resources, desc, textureDesc, pairedTexture);
+        SamplerFeedbackTexture* texture = new SamplerFeedbackTexture(m_Context, desc, textureDesc, pairedTexture);
 
     // [rlaw]: D3D12MA
     #ifdef NVRHI_D3D12_WITH_D3D12MA
@@ -1019,7 +1019,7 @@ namespace nvrhi::d3d12
         textureDesc.initialState = ResourceStates::Unknown;
         textureDesc.keepInitialState = false;
 
-        SamplerFeedbackTexture* texture = new SamplerFeedbackTexture(m_Context, m_Resources, desc, textureDesc, pairedTexture);
+        SamplerFeedbackTexture* texture = new SamplerFeedbackTexture(m_Context, desc, textureDesc, pairedTexture);
         texture->resource = pResource;
 
         return SamplerFeedbackTextureHandle::Create(texture);

@@ -51,7 +51,7 @@ namespace nvrhi::vulkan
         { Format::R16_UNORM,         VK_FORMAT_R16_UNORM                },
         { Format::R16_SNORM,         VK_FORMAT_R16_SNORM                },
         { Format::R16_FLOAT,         VK_FORMAT_R16_SFLOAT               },
-        { Format::BGRA4_UNORM,       VK_FORMAT_B4G4R4A4_UNORM_PACK16    },
+        { Format::BGRA4_UNORM,       VK_FORMAT_A4R4G4B4_UNORM_PACK16    }, // this format matches the bit layout of DXGI_FORMAT_B4G4R4A4_UNORM
         { Format::B5G6R5_UNORM,      VK_FORMAT_B5G6R5_UNORM_PACK16      },
         { Format::B5G5R5A1_UNORM,    VK_FORMAT_B5G5R5A1_UNORM_PACK16    },
         { Format::RGBA8_UINT,        VK_FORMAT_R8G8B8A8_UINT            },
@@ -900,9 +900,9 @@ namespace nvrhi::vulkan
         case coopvec::DataType::SInt64:
             return vk::ComponentTypeKHR::eSint64;
         case coopvec::DataType::FloatE4M3:
-            return vk::ComponentTypeKHR::eFloatE4M3NV;
+            return vk::ComponentTypeKHR::eFloatE4M3;
         case coopvec::DataType::FloatE5M2:
-            return vk::ComponentTypeKHR::eFloatE5M2NV;
+            return vk::ComponentTypeKHR::eFloatE5M2;
         case coopvec::DataType::Float16:
             return vk::ComponentTypeKHR::eFloat16;
         case coopvec::DataType::BFloat16:
@@ -941,9 +941,9 @@ namespace nvrhi::vulkan
             return coopvec::DataType::UInt64;
         case vk::ComponentTypeKHR::eSint64:
             return coopvec::DataType::SInt64;
-        case vk::ComponentTypeKHR::eFloatE4M3NV:
+        case vk::ComponentTypeKHR::eFloatE4M3:
             return coopvec::DataType::FloatE4M3;
-        case vk::ComponentTypeKHR::eFloatE5M2NV:
+        case vk::ComponentTypeKHR::eFloatE5M2:
             return coopvec::DataType::FloatE5M2;
         case vk::ComponentTypeKHR::eFloat16:
             return coopvec::DataType::Float16;

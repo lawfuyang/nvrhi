@@ -38,12 +38,17 @@
 #include <GFSDK_Aftermath.h>
 #endif
 
-// There's no version check available in the nvapi header,
-// instead to check if the NvAPI linked is OMM compatible version (>520) we look for one of the defines it adds...
-#if NVRHI_D3D12_WITH_NVAPI && defined(NVAPI_GET_RAYTRACING_OPACITY_MICROMAP_ARRAY_PREBUILD_INFO_PARAMS_VER)
-#define NVRHI_WITH_NVAPI_OPACITY_MICROMAP (1)
+// If using the Agility SDK version of OMM, ignore the NVAPI version
+#if NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP
+    #define NVRHI_WITH_NVAPI_OPACITY_MICROMAP (0)
 #else
-#define NVRHI_WITH_NVAPI_OPACITY_MICROMAP (0)
+    // There's no version check available in the nvapi header,
+    // instead to check if the NvAPI linked is OMM compatible version (>520) we look for one of the defines it adds...
+    #if NVRHI_D3D12_WITH_NVAPI && defined(NVAPI_GET_RAYTRACING_OPACITY_MICROMAP_ARRAY_PREBUILD_INFO_PARAMS_VER)
+        #define NVRHI_WITH_NVAPI_OPACITY_MICROMAP (1)
+    #else
+        #define NVRHI_WITH_NVAPI_OPACITY_MICROMAP (0)
+    #endif
 #endif
 
 // ... same for DMM compatible versions (>=535) we look for one of the defines it adds
@@ -432,13 +437,12 @@ namespace nvrhi::d3d12
         TextureHandle pairedTexture;
         DescriptorIndex clearDescriptorIndex = c_InvalidDescriptorIndex;
 
-        SamplerFeedbackTexture(const Context& context, DeviceResources& resources, SamplerFeedbackTextureDesc desc, TextureDesc textureDesc, ITexture* pairedTexture)
-            : desc(std::move(desc))
+        SamplerFeedbackTexture(const Context& context, SamplerFeedbackTextureDesc desc, TextureDesc textureDesc, ITexture* pairedTexture)
+            : TextureStateExtension(SamplerFeedbackTexture::textureDesc)
+            , desc(std::move(desc))
             , textureDesc(std::move(textureDesc))
-            , m_Context(context)
-            , m_Resources(resources)
             , pairedTexture(pairedTexture)
-            , TextureStateExtension(SamplerFeedbackTexture::textureDesc)
+            , m_Context(context)
         {
             TextureStateExtension::stateInitialized = true;
             TextureStateExtension::isSamplerFeedback = true;
@@ -465,7 +469,6 @@ namespace nvrhi::d3d12
 
     private:
         const Context& m_Context;
-        DeviceResources& m_Resources;
     };
 
     class Sampler : public RefCounter<ISampler>

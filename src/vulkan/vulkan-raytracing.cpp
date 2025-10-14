@@ -48,9 +48,10 @@ namespace nvrhi::vulkan
 
     static vk::BuildMicromapFlagBitsEXT GetAsVkBuildMicromapFlagBitsEXT(rt::OpacityMicromapBuildFlags flags)
     {
-        assert((flags & (rt::OpacityMicromapBuildFlags::FastBuild | rt::OpacityMicromapBuildFlags::FastTrace)) == flags);
+        assert((flags & (rt::OpacityMicromapBuildFlags::FastBuild | rt::OpacityMicromapBuildFlags::FastTrace | rt::OpacityMicromapBuildFlags::AllowCompaction)) == flags);
         static_assert((uint32_t)vk::BuildMicromapFlagBitsEXT::ePreferFastTrace == (uint32_t)rt::OpacityMicromapBuildFlags::FastTrace);
         static_assert((uint32_t)vk::BuildMicromapFlagBitsEXT::ePreferFastBuild == (uint32_t)rt::OpacityMicromapBuildFlags::FastBuild);
+        static_assert((uint32_t)vk::BuildMicromapFlagBitsEXT::eAllowCompaction == (uint32_t)rt::OpacityMicromapBuildFlags::AllowCompaction);
         return (vk::BuildMicromapFlagBitsEXT)flags;
     }
 
@@ -191,6 +192,10 @@ namespace nvrhi::vulkan
 
             break;
         }
+        case rt::GeometryType::Spheres:
+        case rt::GeometryType::Lss:
+            utils::NotImplemented();
+            break;
         }
 
         if (pRange)
@@ -641,6 +646,10 @@ namespace nvrhi::vulkan
                 }
                 break;
             }
+            case rt::GeometryType::Spheres:
+            case rt::GeometryType::Lss:
+                utils::NotImplemented();
+                break;
             }
         }
 
