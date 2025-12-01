@@ -1400,6 +1400,10 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
         uint64_t rowSizeInBytes;
         uint64_t totalBytes;
 
+        // Needed because of the D3D Debug Layer error:
+        // D3D12 ERROR: ID3D12Device::GetCopyableFootprints: D3D12_RESOURCE_DESC::Alignment is invalid. The value is 16. When D3D12_RESOURCE_DESC::Flag bit for D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT is set, Alignment must be 0. [ STATE_CREATION ERROR 721: CREATERESOURCE_INVALIDALIGNMENT]
+        resourceDesc.Alignment = 0;
+
         m_Context.device->GetCopyableFootprints(&resourceDesc, subresource, 1, 0, &footprint, &numRows, &rowSizeInBytes, &totalBytes);
 
         void* cpuVA;
