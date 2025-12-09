@@ -226,6 +226,13 @@ namespace nvrhi::vulkan
             {
                 dstLss.setIndexType(vk::IndexType::eNoneKHR);
                 dstLss.setIndexStride(0);
+
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkAccelerationStructureGeometryLinearSweptSpheresDataNV.html#VUID-VkAccelerationStructureGeometryLinearSweptSpheresDataNV-indexingMode-10427
+                if (srcLss.primitiveFormat == rt::GeometryLssPrimitiveFormat::SuccessiveImplicit)
+                {
+                    context.error("Unsupported LSS primitive format type. If indexingMode is VK_RAY_TRACING_LSS_INDEXING_MODE_SUCCESSIVE_NV, indexData must not be NULL");
+                }
+                dstLss.setIndexingMode(vk::RayTracingLssIndexingModeNV::eList);
             }
 
             dstLss.setVertexFormat(vk::Format(convertFormat(srcLss.vertexPositionFormat)));
