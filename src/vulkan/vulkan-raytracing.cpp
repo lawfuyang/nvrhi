@@ -141,6 +141,7 @@ namespace nvrhi::vulkan
                     else
                     {
                         context.error("Couldn't suballocate an upload buffer for geometry transform.");
+                        return;
                     }
                 }
                 else
@@ -218,20 +219,20 @@ namespace nvrhi::vulkan
                     break;
                 default:
                     context.error("Unsupported LSS primitive format type");
-                    dstLss.setIndexingMode(vk::RayTracingLssIndexingModeNV::eList);
-                    break;
+                    return;
                 }
             }
             else
             {
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkAccelerationStructureGeometryLinearSweptSpheresDataNV.html#VUID-VkAccelerationStructureGeometryLinearSweptSpheresDataNV-indexingMode-10427
+                if (srcLss.primitiveFormat != rt::GeometryLssPrimitiveFormat::List)
+                {
+                    context.error("Unsupported LSS primitive format type. If indexingMode is VK_RAY_TRACING_LSS_INDEXING_MODE_SUCCESSIVE_NV, indexData must NOT be NULL");
+                    return;
+                }
+
                 dstLss.setIndexType(vk::IndexType::eNoneKHR);
                 dstLss.setIndexStride(0);
-
-                // https://docs.vulkan.org/refpages/latest/refpages/source/VkAccelerationStructureGeometryLinearSweptSpheresDataNV.html#VUID-VkAccelerationStructureGeometryLinearSweptSpheresDataNV-indexingMode-10427
-                if (srcLss.primitiveFormat == rt::GeometryLssPrimitiveFormat::SuccessiveImplicit)
-                {
-                    context.error("Unsupported LSS primitive format type. If indexingMode is VK_RAY_TRACING_LSS_INDEXING_MODE_SUCCESSIVE_NV, indexData must not be NULL");
-                }
                 dstLss.setIndexingMode(vk::RayTracingLssIndexingModeNV::eList);
             }
 
