@@ -162,8 +162,8 @@ namespace nvrhi::vulkan
 
         for (const TextureBarrier& barrier : m_StateTracker.getTextureBarriers())
         {
-            ResourceStateMapping before = convertResourceState(barrier.stateBefore);
-            ResourceStateMapping after = convertResourceState(barrier.stateAfter);
+            ResourceStateMapping before = convertResourceState(barrier.stateBefore, true);
+            ResourceStateMapping after = convertResourceState(barrier.stateAfter, true);
 
             if ((before.stageFlags != beforeStageFlags || after.stageFlags != afterStageFlags) && !imageBarriers.empty())
             {
@@ -217,8 +217,8 @@ namespace nvrhi::vulkan
 
         for (const BufferBarrier& barrier : m_StateTracker.getBufferBarriers())
         {
-            ResourceStateMapping before = convertResourceState(barrier.stateBefore);
-            ResourceStateMapping after = convertResourceState(barrier.stateAfter);
+            ResourceStateMapping before = convertResourceState(barrier.stateBefore, false);
+            ResourceStateMapping after = convertResourceState(barrier.stateAfter, false);
 
             if ((before.stageFlags != beforeStageFlags || after.stageFlags != afterStageFlags) && !bufferBarriers.empty())
             {
@@ -260,8 +260,8 @@ namespace nvrhi::vulkan
 
         for (const TextureBarrier& barrier : m_StateTracker.getTextureBarriers())
         {
-            ResourceStateMapping2 before = convertResourceState2(barrier.stateBefore);
-            ResourceStateMapping2 after = convertResourceState2(barrier.stateAfter);
+            ResourceStateMapping2 before = convertResourceState2(barrier.stateBefore, true);
+            ResourceStateMapping2 after = convertResourceState2(barrier.stateAfter, true);
 
             assert(after.imageLayout != vk::ImageLayout::eUndefined);
 
@@ -306,8 +306,8 @@ namespace nvrhi::vulkan
 
         for (const BufferBarrier& barrier : m_StateTracker.getBufferBarriers())
         {
-            ResourceStateMapping2 before = convertResourceState2(barrier.stateBefore);
-            ResourceStateMapping2 after = convertResourceState2(barrier.stateAfter);
+            ResourceStateMapping2 before = convertResourceState2(barrier.stateBefore, false);
+            ResourceStateMapping2 after = convertResourceState2(barrier.stateAfter, false);
 
             Buffer* buffer = static_cast<Buffer*>(barrier.buffer);
 

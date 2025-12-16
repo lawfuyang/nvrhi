@@ -101,8 +101,8 @@ namespace nvrhi::vulkan
     vk::SamplerAddressMode convertSamplerAddressMode(SamplerAddressMode mode);
     vk::PipelineStageFlagBits2 convertShaderTypeToPipelineStageFlagBits(ShaderType shaderType);
     vk::ShaderStageFlagBits convertShaderTypeToShaderStageFlagBits(ShaderType shaderType);
-    ResourceStateMapping convertResourceState(ResourceStates state);
-    ResourceStateMapping2 convertResourceState2(ResourceStates state);
+    ResourceStateMapping convertResourceState(ResourceStates state, bool isImage);
+    ResourceStateMapping2 convertResourceState2(ResourceStates state, bool isImage);
     vk::PrimitiveTopology convertPrimitiveTopology(PrimitiveType topology);
     vk::PolygonMode convertFillMode(RasterFillMode mode);
     vk::CullModeFlagBits convertCullMode(RasterCullMode mode);
