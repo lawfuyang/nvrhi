@@ -73,7 +73,7 @@ namespace nvrhi::vulkan
     class GraphicsPipeline;
     class ComputePipeline;
     class BindingSet;
-    class EvenetQuery;
+    class EventQuery;
     class TimerQuery;
     class Marker;
     class Device;
@@ -435,7 +435,7 @@ namespace nvrhi::vulkan
         { }
 
         // returns a subresource view for an arbitrary range of mip levels and array layers.
-        // 'viewtype' only matters when asking for a depthstencil view; in situations where only depth or stencil can be bound
+        // 'viewtype' only matters when asking for a depth-stencil view; in situations where only depth or stencil can be bound
         // (such as an SRV with ImageLayout::eShaderReadOnlyOptimal), but not both, then this specifies which of the two aspect bits is to be set.
         TextureSubresourceView& getSubresourceView(const TextureSubresourceSet& subresources, TextureDimension dimension,
             Format format, vk::ImageUsageFlags usage, TextureSubresourceViewType viewtype = TextureSubresourceViewType::AllAspects);
@@ -819,7 +819,7 @@ namespace nvrhi::vulkan
         IBindingLayout* getLayout() const override { return layout; }
         uint32_t getCapacity() const override { return capacity; }
 
-        // Vulkan doesnt not have a concept of the first descriptor in the heap
+        // Vulkan doesn't have a concept of the first descriptor in the heap
         uint32_t getFirstDescriptorIndexInHeap() const override { return 0; }
         Object getNativeObject(ObjectType objectType) override;
 
@@ -1179,7 +1179,7 @@ namespace nvrhi::vulkan
 
     private:
         // Warning m_AftermathCrashDump helper must be first due to reverse destruction order
-        // Queues will destroy CommandLists which will unregister from m_AftermathCrashDumpHelper in their deconstructors
+        // Queues will destroy CommandLists which will unregister from m_AftermathCrashDumpHelper in their destructors
         bool m_AftermathEnabled = false;
         AftermathCrashDumpHelper m_AftermathCrashDumpHelper;
 

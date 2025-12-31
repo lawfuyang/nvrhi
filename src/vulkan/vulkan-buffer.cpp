@@ -504,7 +504,7 @@ namespace nvrhi::vulkan
 
     void CommandList::clearBufferUInt(IBuffer* b, uint32_t clearValue)
     {
-        Buffer* vkbuf = checked_cast<Buffer*>(b);
+        Buffer* buffer = checked_cast<Buffer*>(b);
 
         assert(m_CurrentCmdBuf);
 
@@ -512,11 +512,11 @@ namespace nvrhi::vulkan
 
         if (m_EnableAutomaticBarriers)
         {
-            requireBufferState(vkbuf, ResourceStates::CopyDest);
+            requireBufferState(buffer, ResourceStates::CopyDest);
         }
         commitBarriers();
 
-        m_CurrentCmdBuf->cmdBuf.fillBuffer(vkbuf->buffer, 0, vkbuf->desc.byteSize, clearValue);
+        m_CurrentCmdBuf->cmdBuf.fillBuffer(buffer->buffer, 0, buffer->desc.byteSize, clearValue);
         m_CurrentCmdBuf->referencedResources.push_back(b);
     }
 
