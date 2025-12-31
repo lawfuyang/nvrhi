@@ -615,6 +615,7 @@ namespace nvrhi::vulkan
             requireBufferState(desc.perOmmDescs, ResourceStates::OpacityMicromapBuildInput);
 
             requireBufferState(omm->dataBuffer, nvrhi::ResourceStates::OpacityMicromapWrite);
+            m_BindingStatesDirty = true;
         }
 
         if (desc.trackLiveness)
@@ -736,6 +737,8 @@ namespace nvrhi::vulkan
             }
             }
         }
+
+        m_BindingStatesDirty = true;
 
         auto buildInfo = vk::AccelerationStructureBuildGeometryInfoKHR()
             .setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
@@ -1002,6 +1005,7 @@ namespace nvrhi::vulkan
         if (m_EnableAutomaticBarriers)
         {
             requireBufferState(as->dataBuffer, nvrhi::ResourceStates::AccelStructWrite);
+            m_BindingStatesDirty = true;
         }
         commitBarriers();
 
@@ -1022,6 +1026,7 @@ namespace nvrhi::vulkan
         {
             requireBufferState(as->dataBuffer, nvrhi::ResourceStates::AccelStructWrite);
             requireBufferState(instanceBuffer, nvrhi::ResourceStates::AccelStructBuildInput);
+            m_BindingStatesDirty = true;
         }
         commitBarriers();
 
@@ -1064,6 +1069,7 @@ namespace nvrhi::vulkan
                 requireBufferState(outSizesBuffer, ResourceStates::UnorderedAccess);
             if (outAccelerationStructuresBuffer)
                 requireBufferState(outAccelerationStructuresBuffer, ResourceStates::AccelStructWrite);
+            m_BindingStatesDirty = true;
         }
 
         // Track resources for liveness

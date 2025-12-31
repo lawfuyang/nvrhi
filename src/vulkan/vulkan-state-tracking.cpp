@@ -75,22 +75,42 @@ namespace nvrhi::vulkan
         }
     }
 
-    void CommandList::insertGraphicsResourceBarriers(const GraphicsState& state)
+    void CommandList::insertResourceBarriersForBindingSets(const BindingSetVector& newBindings, const BindingSetVector& oldBindings)
     {
-        if (arraysAreDifferent(state.bindings, m_CurrentGraphicsState.bindings))
+        uint32_t bindingUpdateMask = 0;
+
+        if (m_BindingStatesDirty)
+            bindingUpdateMask = ~0u;
+
+        if (bindingUpdateMask == 0)
+            bindingUpdateMask = arrayDifferenceMask(newBindings, oldBindings);
+
+        if (bindingUpdateMask != 0)
         {
-            for (size_t i = 0; i < state.bindings.size(); i++)
+            for (size_t i = 0; i < newBindings.size(); i++)
             {
-                setResourceStatesForBindingSet(state.bindings[i]);
+                if (newBindings[i]->getDesc() == nullptr) // Ignore bindless sets
+                    continue;
+
+                BindingSet const* bindingSet = checked_cast<BindingSet const*>(newBindings[i]);
+
+                bool const updateThisSet = (bindingUpdateMask & (1u << i)) != 0;
+                if (updateThisSet || bindingSet->hasUavBindings) // UAV bindings may place UAV barriers on the same binding set
+                    setResourceStatesForBindingSet(newBindings[i]);
             }
         }
+    }
 
-        if (state.indexBuffer.buffer && state.indexBuffer.buffer != m_CurrentGraphicsState.indexBuffer.buffer)
+    void CommandList::insertGraphicsResourceBarriers(const GraphicsState& state)
+    {
+        insertResourceBarriersForBindingSets(state.bindings, m_CurrentGraphicsState.bindings);
+
+        if (state.indexBuffer.buffer && (m_BindingStatesDirty || state.indexBuffer.buffer != m_CurrentGraphicsState.indexBuffer.buffer))
         {
             requireBufferState(state.indexBuffer.buffer, ResourceStates::IndexBuffer);
         }
 
-        if (arraysAreDifferent(state.vertexBuffers, m_CurrentGraphicsState.vertexBuffers))
+        if (m_BindingStatesDirty || arraysAreDifferent(state.vertexBuffers, m_CurrentGraphicsState.vertexBuffers))
         {
             for (const auto& vb : state.vertexBuffers)
             {
@@ -98,65 +118,55 @@ namespace nvrhi::vulkan
             }
         }
 
-        if (m_CurrentGraphicsState.framebuffer != state.framebuffer)
+        if (m_BindingStatesDirty || m_CurrentGraphicsState.framebuffer != state.framebuffer)
         {
             setResourceStatesForFramebuffer(state.framebuffer);
         }
 
-        if (state.indirectParams && state.indirectParams != m_CurrentGraphicsState.indirectParams)
+        if (state.indirectParams && (m_BindingStatesDirty || state.indirectParams != m_CurrentGraphicsState.indirectParams))
         {
             requireBufferState(state.indirectParams, ResourceStates::IndirectArgument);
         }
+
+        m_BindingStatesDirty = false;
     }
 
     void CommandList::insertComputeResourceBarriers(const ComputeState& state)
     {
-        if (arraysAreDifferent(state.bindings, m_CurrentComputeState.bindings))
-        {
-            for (size_t i = 0; i < state.bindings.size(); i++)
-            {
-                setResourceStatesForBindingSet(state.bindings[i]);
-            }
-        }
+        insertResourceBarriersForBindingSets(state.bindings, m_CurrentComputeState.bindings);
 
-        if (state.indirectParams && state.indirectParams != m_CurrentComputeState.indirectParams)
+        if (state.indirectParams && (m_BindingStatesDirty || state.indirectParams != m_CurrentComputeState.indirectParams))
         {
             Buffer* indirectParams = checked_cast<Buffer*>(state.indirectParams);
 
             requireBufferState(indirectParams, ResourceStates::IndirectArgument);
         }
+
+        m_BindingStatesDirty = false;
     }
 
     void CommandList::insertMeshletResourceBarriers(const MeshletState& state)
     {
-        if (arraysAreDifferent(state.bindings, m_CurrentMeshletState.bindings))
-        {
-            for (size_t i = 0; i < state.bindings.size(); i++)
-            {
-                setResourceStatesForBindingSet(state.bindings[i]);
-            }
-        }
+        insertResourceBarriersForBindingSets(state.bindings, m_CurrentMeshletState.bindings);
 
-        if (m_CurrentMeshletState.framebuffer != state.framebuffer)
+        if (m_BindingStatesDirty || m_CurrentMeshletState.framebuffer != state.framebuffer)
         {
             setResourceStatesForFramebuffer(state.framebuffer);
         }
 
-        if (state.indirectParams && state.indirectParams != m_CurrentMeshletState.indirectParams)
+        if (state.indirectParams && (m_BindingStatesDirty || state.indirectParams != m_CurrentMeshletState.indirectParams))
         {
             requireBufferState(state.indirectParams, ResourceStates::IndirectArgument);
         }
+
+        m_BindingStatesDirty = false;
     }
 
     void CommandList::insertRayTracingResourceBarriers(const rt::State& state)
     {
-        if (arraysAreDifferent(state.bindings, m_CurrentRayTracingState.bindings))
-        {
-            for (size_t i = 0; i < state.bindings.size(); i++)
-            {
-                setResourceStatesForBindingSet(state.bindings[i]);
-            }
-        }
+        insertResourceBarriersForBindingSets(state.bindings, m_CurrentRayTracingState.bindings);
+
+        m_BindingStatesDirty = false;
     }
 
     void CommandList::requireTextureState(ITexture* _texture, TextureSubresourceSet subresources, ResourceStates state)
