@@ -75,10 +75,8 @@ namespace nvrhi::vulkan
         }
     }
 
-    void CommandList::trackResourcesAndBarriers(const GraphicsState& state)
+    void CommandList::insertGraphicsResourceBarriers(const GraphicsState& state)
     {
-        assert(m_EnableAutomaticBarriers);
-
         if (arraysAreDifferent(state.bindings, m_CurrentGraphicsState.bindings))
         {
             for (size_t i = 0; i < state.bindings.size(); i++)
@@ -111,10 +109,26 @@ namespace nvrhi::vulkan
         }
     }
 
-    void CommandList::trackResourcesAndBarriers(const MeshletState& state)
+    void CommandList::insertComputeResourceBarriers(const ComputeState& state)
     {
-        assert(m_EnableAutomaticBarriers);
-        
+        if (arraysAreDifferent(state.bindings, m_CurrentComputeState.bindings))
+        {
+            for (size_t i = 0; i < state.bindings.size(); i++)
+            {
+                setResourceStatesForBindingSet(state.bindings[i]);
+            }
+        }
+
+        if (state.indirectParams && state.indirectParams != m_CurrentComputeState.indirectParams)
+        {
+            Buffer* indirectParams = checked_cast<Buffer*>(state.indirectParams);
+
+            requireBufferState(indirectParams, ResourceStates::IndirectArgument);
+        }
+    }
+
+    void CommandList::insertMeshletResourceBarriers(const MeshletState& state)
+    {
         if (arraysAreDifferent(state.bindings, m_CurrentMeshletState.bindings))
         {
             for (size_t i = 0; i < state.bindings.size(); i++)
@@ -131,6 +145,17 @@ namespace nvrhi::vulkan
         if (state.indirectParams && state.indirectParams != m_CurrentMeshletState.indirectParams)
         {
             requireBufferState(state.indirectParams, ResourceStates::IndirectArgument);
+        }
+    }
+
+    void CommandList::insertRayTracingResourceBarriers(const rt::State& state)
+    {
+        if (arraysAreDifferent(state.bindings, m_CurrentRayTracingState.bindings))
+        {
+            for (size_t i = 0; i < state.bindings.size(); i++)
+            {
+                setResourceStatesForBindingSet(state.bindings[i]);
+            }
         }
     }
 

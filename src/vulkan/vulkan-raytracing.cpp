@@ -1228,15 +1228,7 @@ namespace nvrhi::vulkan
 
         if (m_EnableAutomaticBarriers)
         {
-            for (size_t i = 0; i < state.bindings.size() && i < pso->desc.globalBindingLayouts.size(); i++)
-            {
-                BindingLayout* layout = checked_cast<BindingLayout*>(pso->desc.globalBindingLayouts[i].Get());
-
-                if ((layout->desc.visibility & ShaderType::AllRayTracing) == 0)
-                    continue;
-                
-                setResourceStatesForBindingSet(state.bindings[i]);
-            }
+            insertRayTracingResourceBarriers(state);
         }
 
         if (m_CurrentRayTracingState.shaderTable != state.shaderTable)

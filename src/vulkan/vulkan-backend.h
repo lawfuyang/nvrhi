@@ -1339,8 +1339,10 @@ namespace nvrhi::vulkan
         void beginRenderPass(nvrhi::IFramebuffer* framebuffer);
         void endRenderPass();
 
-        void trackResourcesAndBarriers(const GraphicsState& state);
-        void trackResourcesAndBarriers(const MeshletState& state);
+        void insertGraphicsResourceBarriers(const GraphicsState& state);
+        void insertComputeResourceBarriers(const ComputeState& state);
+        void insertMeshletResourceBarriers(const MeshletState& state);
+        void insertRayTracingResourceBarriers(const rt::State& state);
         
         void writeVolatileBuffer(Buffer* buffer, const void* data, size_t dataSize);
         void flushVolatileBufferWrites();
