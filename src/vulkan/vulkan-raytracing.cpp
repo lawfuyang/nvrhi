@@ -71,47 +71,51 @@ namespace nvrhi::vulkan
         const rt::GeometryDesc& src,
         vk::AccelerationStructureGeometryKHR& dst,
         vk::AccelerationStructureTrianglesOpacityMicromapEXT& dstOmm,
+        vk::AccelerationStructureGeometryLinearSweptSpheresDataNV& dstLss,
         uint32_t& maxPrimitiveCount,
         vk::AccelerationStructureBuildRangeInfoKHR* pRange,
         const VulkanContext& context,
         UploadManager* uploadManager,
         uint64_t currentVersion)
     {
+        auto convertIndexFormatToType = [&context](const nvrhi::Format indexFormat, const bool supportUint8) {
+            switch (indexFormat)  // NOLINT(clang-diagnostic-switch-enum)
+            {
+            case Format::R8_UINT:
+                if (supportUint8)
+                {
+                    return vk::IndexType::eUint8EXT;
+                }
+                else
+                {
+                    context.error("UINT8 index type is not supported by the current ray tracing geometry configuration");
+                    return vk::IndexType::eNoneKHR;
+                }
+            case Format::R16_UINT:
+                return vk::IndexType::eUint16;
+            case Format::R32_UINT:
+                return vk::IndexType::eUint32;
+            case Format::UNKNOWN:
+                return vk::IndexType::eNoneKHR;
+            default:
+                context.error("Unsupported ray tracing geometry index type");
+                return vk::IndexType::eNoneKHR;
+            }
+        };
+
         switch (src.geometryType)
         {
         case rt::GeometryType::Triangles: {
             const rt::GeometryTriangles& srct = src.geometryData.triangles;
             vk::AccelerationStructureGeometryTrianglesDataKHR dstt;
 
-            switch (srct.indexFormat)  // NOLINT(clang-diagnostic-switch-enum)
-            {
-            case Format::R8_UINT:
-                dstt.setIndexType(vk::IndexType::eUint8EXT);
-                break;
-
-            case Format::R16_UINT:
-                dstt.setIndexType(vk::IndexType::eUint16);
-                break;
-
-            case Format::R32_UINT:
-                dstt.setIndexType(vk::IndexType::eUint32);
-                break;
-
-            case Format::UNKNOWN:
-                dstt.setIndexType(vk::IndexType::eNoneKHR);
-                break;
-
-            default:
-                context.error("Unsupported ray tracing geometry index type");
-                dstt.setIndexType(vk::IndexType::eNoneKHR);
-                break;
-            }
+            dstt.setIndexType(convertIndexFormatToType(srct.indexFormat, true));
+            dstt.setIndexData(getBufferAddress(srct.indexBuffer, srct.indexOffset));
 
             dstt.setVertexFormat(vk::Format(convertFormat(srct.vertexFormat)));
             dstt.setVertexData(getBufferAddress(srct.vertexBuffer, srct.vertexOffset));
             dstt.setVertexStride(srct.vertexStride);
             dstt.setMaxVertex(std::max(srct.vertexCount, 1u) - 1u);
-            dstt.setIndexData(getBufferAddress(srct.indexBuffer, srct.indexOffset));
 
             if (src.useTransform)
             {
@@ -137,6 +141,7 @@ namespace nvrhi::vulkan
                     else
                     {
                         context.error("Couldn't suballocate an upload buffer for geometry transform.");
+                        return;
                     }
                 }
                 else
@@ -193,9 +198,74 @@ namespace nvrhi::vulkan
             break;
         }
         case rt::GeometryType::Spheres:
-        case rt::GeometryType::Lss:
             utils::NotImplemented();
             break;
+        case rt::GeometryType::Lss: {
+            const rt::GeometryLss& srcLss = src.geometryData.lss;
+
+            if (srcLss.indexBuffer)
+            {
+                dstLss.setIndexType(convertIndexFormatToType(srcLss.indexFormat, false));
+                dstLss.setIndexData(getBufferAddress(srcLss.indexBuffer, srcLss.indexOffset));
+                dstLss.setIndexStride(srcLss.indexStride);
+
+                switch (srcLss.primitiveFormat)
+                {
+                case rt::GeometryLssPrimitiveFormat::List:
+                    dstLss.setIndexingMode(vk::RayTracingLssIndexingModeNV::eList);
+                    break;
+                case rt::GeometryLssPrimitiveFormat::SuccessiveImplicit:
+                    dstLss.setIndexingMode(vk::RayTracingLssIndexingModeNV::eSuccessive);
+                    break;
+                default:
+                    context.error("Unsupported LSS primitive format type");
+                    return;
+                }
+            }
+            else
+            {
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkAccelerationStructureGeometryLinearSweptSpheresDataNV.html#VUID-VkAccelerationStructureGeometryLinearSweptSpheresDataNV-indexingMode-10427
+                if (srcLss.primitiveFormat != rt::GeometryLssPrimitiveFormat::List)
+                {
+                    context.error("Unsupported LSS primitive format type. If indexingMode is VK_RAY_TRACING_LSS_INDEXING_MODE_SUCCESSIVE_NV, indexData must NOT be NULL");
+                    return;
+                }
+
+                dstLss.setIndexType(vk::IndexType::eNoneKHR);
+                dstLss.setIndexStride(0);
+                dstLss.setIndexingMode(vk::RayTracingLssIndexingModeNV::eList);
+            }
+
+            dstLss.setVertexFormat(vk::Format(convertFormat(srcLss.vertexPositionFormat)));
+            dstLss.setVertexData(getBufferAddress(srcLss.vertexBuffer, srcLss.vertexPositionOffset));
+            dstLss.setVertexStride(srcLss.vertexPositionStride);
+
+            dstLss.setRadiusFormat(vk::Format(convertFormat(srcLss.vertexRadiusFormat)));
+            dstLss.setRadiusData(getBufferAddress(srcLss.vertexBuffer, srcLss.vertexRadiusOffset));
+            dstLss.setRadiusStride(srcLss.vertexRadiusStride);
+
+            vk::RayTracingLssPrimitiveEndCapsModeNV endcapMode = vk::RayTracingLssPrimitiveEndCapsModeNV::eNone;
+            switch (srcLss.endcapMode)
+            {
+            case rt::GeometryLssEndcapMode::None:
+                endcapMode = vk::RayTracingLssPrimitiveEndCapsModeNV::eNone;
+                break;
+            case rt::GeometryLssEndcapMode::Chained:
+                endcapMode = vk::RayTracingLssPrimitiveEndCapsModeNV::eChained;
+                break;
+            default:
+                context.error("Unsupported LSS end cap mode type");
+                break;
+            }
+            dstLss.setEndCapsMode(endcapMode);
+
+            maxPrimitiveCount = srcLss.primitiveCount;
+
+            dst.setGeometryType(vk::GeometryTypeNV::eLinearSweptSpheresNV);
+            dst.setPNext(&dstLss);
+
+            break;
+        }
         }
 
         if (pRange)
@@ -267,6 +337,7 @@ namespace nvrhi::vulkan
         {
             std::vector<vk::AccelerationStructureGeometryKHR> geometries;
             std::vector<vk::AccelerationStructureTrianglesOpacityMicromapEXT> omms;
+            std::vector<vk::AccelerationStructureGeometryLinearSweptSpheresDataNV> lss;
             std::vector<uint32_t> maxPrimitiveCounts;
 
             auto buildInfo = vk::AccelerationStructureBuildGeometryInfoKHR();
@@ -286,11 +357,12 @@ namespace nvrhi::vulkan
             {
                 geometries.resize(desc.bottomLevelGeometries.size());
                 omms.resize(desc.bottomLevelGeometries.size());
+                lss.resize(desc.bottomLevelGeometries.size());
                 maxPrimitiveCounts.resize(desc.bottomLevelGeometries.size());
 
                 for (size_t i = 0; i < desc.bottomLevelGeometries.size(); i++)
                 {
-                    convertBottomLevelGeometry(desc.bottomLevelGeometries[i],  geometries[i], omms[i], maxPrimitiveCounts[i],
+                    convertBottomLevelGeometry(desc.bottomLevelGeometries[i], geometries[i], omms[i], lss[i], maxPrimitiveCounts[i],
                         nullptr, m_Context, nullptr, 0);
                 }
 
@@ -606,10 +678,12 @@ namespace nvrhi::vulkan
 
         std::vector<vk::AccelerationStructureGeometryKHR> geometries;
         std::vector<vk::AccelerationStructureTrianglesOpacityMicromapEXT> omms;
+        std::vector<vk::AccelerationStructureGeometryLinearSweptSpheresDataNV> lss;
         std::vector<vk::AccelerationStructureBuildRangeInfoKHR> buildRanges;
         std::vector<uint32_t> maxPrimitiveCounts;
         geometries.resize(numGeometries);
         omms.resize(numGeometries);
+        lss.resize(numGeometries);
         maxPrimitiveCounts.resize(numGeometries);
         buildRanges.resize(numGeometries);
 
@@ -617,7 +691,7 @@ namespace nvrhi::vulkan
 
         for (size_t i = 0; i < numGeometries; i++)
         {
-            convertBottomLevelGeometry(pGeometries[i], geometries[i], omms[i], maxPrimitiveCounts[i], &buildRanges[i],
+            convertBottomLevelGeometry(pGeometries[i], geometries[i], omms[i], lss[i], maxPrimitiveCounts[i], &buildRanges[i],
                 m_Context, m_UploadManager.get(), currentVersion);
 
             const rt::GeometryDesc& src = pGeometries[i];
@@ -647,9 +721,19 @@ namespace nvrhi::vulkan
                 break;
             }
             case rt::GeometryType::Spheres:
-            case rt::GeometryType::Lss:
                 utils::NotImplemented();
                 break;
+            case rt::GeometryType::Lss: {
+                const rt::GeometryLss& srcLss = src.geometryData.lss;
+                if (m_EnableAutomaticBarriers)
+                {
+                    if (srcLss.indexBuffer)
+                        requireBufferState(srcLss.indexBuffer, nvrhi::ResourceStates::AccelStructBuildInput);
+                    if (srcLss.vertexBuffer)
+                        requireBufferState(srcLss.vertexBuffer, nvrhi::ResourceStates::AccelStructBuildInput);
+                }
+                break;
+            }
             }
         }
 
@@ -1476,12 +1560,16 @@ namespace nvrhi::vulkan
         auto pipelineClusters = vk::RayTracingPipelineClusterAccelerationStructureCreateInfoNV()
             .setAllowClusterAccelerationStructure(true);
 
+        auto pipelineFlags2 = vk::PipelineCreateFlags2CreateInfoKHR();
+        pipelineFlags2.setFlags(vk::PipelineCreateFlagBits2::eRayTracingAllowSpheresAndLinearSweptSpheresNV);
+
         auto pipelineInfo = vk::RayTracingPipelineCreateInfoKHR()
             .setStages(shaderStages)
             .setGroups(shaderGroups)
             .setLayout(pso->pipelineLayout)
             .setMaxPipelineRayRecursionDepth(desc.maxRecursionDepth)
-            .setPLibraryInfo(&libraryInfo);
+            .setPLibraryInfo(&libraryInfo)
+            .setPNext(&pipelineFlags2);
 
         if (m_Context.extensions.NV_cluster_acceleration_structure)
         {
