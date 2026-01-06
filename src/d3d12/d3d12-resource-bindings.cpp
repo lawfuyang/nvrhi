@@ -1004,7 +1004,7 @@ namespace nvrhi::d3d12
                             m_Instance->referencedResources.push_back(bindingSet);
                     }
 
-                    if (m_EnableAutomaticBarriers && (updateThisSet || bindingSet->hasUavBindings)) // UAV bindings may place UAV barriers on the same binding set
+                    if (m_EnableAutomaticBarriers && (m_BindingStatesDirty || updateThisSet || bindingSet->hasUavBindings)) // UAV bindings may place UAV barriers on the same binding set
                     {
                         setResourceStatesForBindingSet(bindingSet);
                     }
@@ -1130,7 +1130,7 @@ namespace nvrhi::d3d12
                             m_Instance->referencedResources.push_back(bindingSet);
                     }
 
-                    if (m_EnableAutomaticBarriers && (updateThisSet || bindingSet->hasUavBindings)) // UAV bindings may place UAV barriers on the same binding set
+                    if (m_EnableAutomaticBarriers && (m_BindingStatesDirty || updateThisSet || bindingSet->hasUavBindings)) // UAV bindings may place UAV barriers on the same binding set
                     {
                         setResourceStatesForBindingSet(bindingSet);
                     }

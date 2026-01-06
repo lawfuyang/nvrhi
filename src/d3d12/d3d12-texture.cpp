@@ -1064,6 +1064,7 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
             if (m_EnableAutomaticBarriers)
             {
                 requireTextureState(t, subresources, ResourceStates::RenderTarget);
+                m_BindingStatesDirty = true;
             }
             commitBarriers();
 
@@ -1082,6 +1083,7 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
             if (m_EnableAutomaticBarriers)
             {
                 requireTextureState(t, subresources, ResourceStates::UnorderedAccess);
+                m_BindingStatesDirty = true;
             }
             commitBarriers();
 
@@ -1123,6 +1125,7 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
         if (m_EnableAutomaticBarriers)
         {
             requireTextureState(t, subresources, ResourceStates::DepthWrite);
+            m_BindingStatesDirty = true;
         }
         commitBarriers();
 
@@ -1168,6 +1171,7 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
             if (m_EnableAutomaticBarriers)
             {
                 requireTextureState(t, subresources, ResourceStates::UnorderedAccess);
+                m_BindingStatesDirty = true;
             }
             commitBarriers();
 
@@ -1190,6 +1194,7 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
             if (m_EnableAutomaticBarriers)
             {
                 requireTextureState(t, subresources, ResourceStates::RenderTarget);
+                m_BindingStatesDirty = true;
             }
             commitBarriers();
 
@@ -1233,6 +1238,7 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
         {
             requireBufferState(buffer, ResourceStates::ResolveDest);
             requireSamplerFeedbackTextureState(texture, ResourceStates::ResolveSource);
+            m_BindingStatesDirty = true;
         }
         commitBarriers();
 
@@ -1280,6 +1286,7 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
         {
             requireTextureState(dst, TextureSubresourceSet(resolvedDstSlice.mipLevel, 1, resolvedDstSlice.arraySlice, 1), ResourceStates::CopyDest);
             requireTextureState(src, TextureSubresourceSet(resolvedSrcSlice.mipLevel, 1, resolvedSrcSlice.arraySlice, 1), ResourceStates::CopySource);
+            m_BindingStatesDirty = true;
         }
         commitBarriers();
 
@@ -1308,6 +1315,7 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
         {
             requireTextureState(dst, TextureSubresourceSet(resolvedDstSlice.mipLevel, 1, resolvedDstSlice.arraySlice, 1), ResourceStates::CopyDest);
             requireBufferState(src->buffer, ResourceStates::CopySource);
+            m_BindingStatesDirty = true;
         }
         commitBarriers();
 
@@ -1352,6 +1360,7 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
         {
             requireTextureState(src, TextureSubresourceSet(resolvedSrcSlice.mipLevel, 1, resolvedSrcSlice.arraySlice, 1), ResourceStates::CopySource);
             requireBufferState(dst->buffer, ResourceStates::CopyDest);
+            m_BindingStatesDirty = true;
         }
         commitBarriers();
 
@@ -1389,6 +1398,7 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
         if (m_EnableAutomaticBarriers)
         {
             requireTextureState(dest, TextureSubresourceSet(mipLevel, 1, arraySlice, 1), ResourceStates::CopyDest);
+            m_BindingStatesDirty = true;
         }
         commitBarriers();
 
@@ -1539,6 +1549,7 @@ void SamplerFeedbackTexture::createUAV(size_t descriptor) const
         {
             requireTextureState(_dest, dstSubresources, ResourceStates::ResolveDest);
             requireTextureState(_src, srcSubresources, ResourceStates::ResolveSource);
+            m_BindingStatesDirty = true;
         }
         commitBarriers();
 
