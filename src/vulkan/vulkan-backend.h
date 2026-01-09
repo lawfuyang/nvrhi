@@ -1130,9 +1130,9 @@ namespace nvrhi::vulkan
         // [rlaw] BEGIN: Pipeline Query support
         // TODO
         PipelineStatisticsQueryHandle createPipelineStatisticsQuery() override { return {}; }
-        PipelineStatistics getPipelineStatistics(IPipelineStatisticsQuery* query) override { return {}; }
-        bool pollPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override { return {}; }
-        void resetPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override {}
+        PipelineStatistics getPipelineStatistics(IPipelineStatisticsQuery*) override { return {}; }
+        bool pollPipelineStatisticsQuery(IPipelineStatisticsQuery*) override { return {}; }
+        void resetPipelineStatisticsQuery(IPipelineStatisticsQuery*) override {}
         // [rlaw] END: Pipeline Query support
 
         GraphicsAPI getGraphicsAPI() override;
@@ -1240,7 +1240,7 @@ namespace nvrhi::vulkan
         void resolveTexture(ITexture* dest, const TextureSubresourceSet& dstSubresources, ITexture* src, const TextureSubresourceSet& srcSubresources) override;
 
         // [rlaw] BEGIN: Copies a single 2D or 3D region of texture data from CPU memory. TODO
-        void writeTexture(ITexture* dest, const TextureSlice& destSlice, const void* data, size_t rowPitch, size_t depthPitch) override {}
+        void writeTexture(ITexture*, const TextureSlice&, const void*, size_t, size_t) override {}
         // [rlaw] END
 
         void writeBuffer(IBuffer* b, const void* data, size_t dataSize, uint64_t destOffsetBytes = 0) override;
@@ -1261,7 +1261,7 @@ namespace nvrhi::vulkan
 
         void setMeshletState(const MeshletState& state) override;
         void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;
-        void dispatchMeshIndirect(uint32_t offsetBytes) override {} // [rlaw]: support dispatchMeshIndirect. TODO
+        void dispatchMeshIndirect(uint32_t) override {} // [rlaw]: support dispatchMeshIndirect. TODO
 
         void setRayTracingState(const rt::State& state) override;
         void dispatchRays(const rt::DispatchRaysArguments& args) override;
@@ -1309,8 +1309,8 @@ namespace nvrhi::vulkan
         TrackedCommandBufferPtr getCurrentCmdBuf() const { return m_CurrentCmdBuf; }
 
         // [rlaw] BEGIN: Pipeline Query support. TODO
-        void beginPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override {}
-        void endPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override {}
+        void beginPipelineStatisticsQuery(IPipelineStatisticsQuery*) override {}
+        void endPipelineStatisticsQuery(IPipelineStatisticsQuery*) override {}
         // [rlaw] END: Pipeline Query support
 
     private:
