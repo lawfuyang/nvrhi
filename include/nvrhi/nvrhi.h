@@ -64,7 +64,7 @@ namespace nvrhi
 {
     // Version of the public API provided by NVRHI.
     // Increment this when any changes to the API are made.
-    static constexpr uint32_t c_HeaderVersion = 21;
+    static constexpr uint32_t c_HeaderVersion = 22;
 
     // Verifies that the version of the implementation matches the version of the header.
     // Returns true if they match. Use this when initializing apps using NVRHI as a shared library.
@@ -2824,9 +2824,39 @@ namespace nvrhi
 
         class IPipeline;
 
+        struct ShaderTableDesc
+        {
+            // Controls the memory usage and building behavior of the shader table.
+            //
+            // - When a shader table is cached, it creates an additional buffer that holds the built shader table.
+            //   This buffer is updated in CommandList::setRayTracingState after the shader table is modified.
+            // - When a shader table is uncached, this buffer is suballocated from the upload manager when the shader
+            //   table is first used in CommandList::setRayTracingState after opening a command list, and reallocated
+            //   and rebuilt on subsequent calls to setRayTracingState if the shader table is modified.
+            //
+            // The legacy and default behavior is uncached.
+            // It is recommended to enable caching for large and infrequently updated shader tables.
+            bool isCached = false;
+
+            // Maximum number of entries in a cached shader table.
+            // Must be nonzero when isCached == true.
+            // Ignored when isCached == false.
+            uint32_t maxEntries = 0;
+
+            std::string debugName;
+
+            ShaderTableDesc& setIsCached(bool value) { isCached = value; return *this; }
+            ShaderTableDesc& setMaxEntries(uint32_t value) { maxEntries = value; return *this; }
+            ShaderTableDesc& setDebugName(const std::string& value) { debugName = value; return *this; }
+            ShaderTableDesc& enableCaching(uint32_t _maxEntries) { isCached = true; maxEntries = _maxEntries; return *this; }
+        };
+
         class IShaderTable : public IResource
         {
         public:
+            virtual ShaderTableDesc const& getDesc() const = 0;
+            virtual uint32_t getNumEntries() const = 0;
+            virtual IPipeline* getPipeline() const = 0;
             virtual void setRayGenerationShader(const char* exportName, IBindingSet* bindings = nullptr) = 0;
             virtual int addMissShader(const char* exportName, IBindingSet* bindings = nullptr) = 0;
             virtual int addHitGroup(const char* exportName, IBindingSet* bindings = nullptr) = 0;
@@ -2834,7 +2864,6 @@ namespace nvrhi
             virtual void clearMissShaders() = 0;
             virtual void clearHitShaders() = 0;
             virtual void clearCallableShaders() = 0;
-            virtual IPipeline* getPipeline() = 0;
         };
 
         typedef RefCountPtr<IShaderTable> ShaderTableHandle;
@@ -2843,7 +2872,7 @@ namespace nvrhi
         {
         public:
             [[nodiscard]] virtual const rt::PipelineDesc& getDesc() const = 0;
-            virtual ShaderTableHandle createShaderTable() = 0;
+            virtual ShaderTableHandle createShaderTable(ShaderTableDesc const& desc = ShaderTableDesc()) = 0;
         };
 
         typedef RefCountPtr<IPipeline> PipelineHandle;

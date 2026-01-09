@@ -928,19 +928,31 @@ namespace nvrhi::vulkan
         std::unordered_map<std::string, uint32_t> shaderGroups; // name -> index
         std::vector<uint8_t> shaderGroupHandles;
 
-        explicit RayTracingPipeline(const VulkanContext& context)
+        explicit RayTracingPipeline(const VulkanContext& context, Device* device)
             : m_Context(context)
+            , m_Device(device)
         { }
 
         ~RayTracingPipeline() override;
         const rt::PipelineDesc& getDesc() const override { return desc; }
-        rt::ShaderTableHandle createShaderTable() override;
+        rt::ShaderTableHandle createShaderTable(rt::ShaderTableDesc const& stDesc) override;
         Object getNativeObject(ObjectType objectType) override;
 
         int findShaderGroup(const std::string& name); // returns -1 if not found
+        uint32_t getShaderTableEntrySize() const { return m_Context.rayTracingPipelineProperties.shaderGroupBaseAlignment; }
 
     private:
         const VulkanContext& m_Context;
+        Device* m_Device;
+    };
+
+    struct ShaderTableState
+    {
+        uint32_t version = 0;
+        vk::StridedDeviceAddressRegionKHR rayGen;
+        vk::StridedDeviceAddressRegionKHR miss;
+        vk::StridedDeviceAddressRegionKHR hitGroups;
+        vk::StridedDeviceAddressRegionKHR callable;
     };
 
     class ShaderTable : public RefCounter<rt::IShaderTable>
@@ -955,11 +967,21 @@ namespace nvrhi::vulkan
 
         uint32_t version = 0;
 
-        ShaderTable(const VulkanContext& context, RayTracingPipeline* _pipeline)
+        BufferHandle cache;
+        ShaderTableState cacheState;
+
+        ShaderTable(const VulkanContext& context, RayTracingPipeline* _pipeline, rt::ShaderTableDesc const& desc)
             : pipeline(_pipeline)
             , m_Context(context)
+            , m_Desc(desc)
         { }
         
+        size_t getUploadSize() const { return pipeline->getShaderTableEntrySize() * size_t(getNumEntries()); }
+        void bake(uint8_t* cpuVA, vk::DeviceAddress gpuVA, ShaderTableState& state);
+
+        rt::ShaderTableDesc const& getDesc() const override { return m_Desc; }
+        uint32_t getNumEntries() const override;
+        rt::IPipeline* getPipeline() const override { return pipeline; }
         void setRayGenerationShader(const char* exportName, IBindingSet* bindings = nullptr) override;
         int addMissShader(const char* exportName, IBindingSet* bindings = nullptr) override;
         int addHitGroup(const char* exportName, IBindingSet* bindings = nullptr) override;
@@ -967,11 +989,10 @@ namespace nvrhi::vulkan
         void clearMissShaders() override;
         void clearHitShaders() override;
         void clearCallableShaders() override;
-        rt::IPipeline* getPipeline() override { return pipeline; }
-        uint32_t getNumEntries() const;
 
     private:
         const VulkanContext& m_Context;
+        rt::ShaderTableDesc const m_Desc;
 
         bool verifyShaderGroupExists(const char* exportName, int shaderGroupIndex) const;
     };
@@ -1320,14 +1341,8 @@ namespace nvrhi::vulkan
         bool m_AnyVolatileBufferWrites = false;
         bool m_BindingStatesDirty = false;
 
-        struct ShaderTableState
-        {
-            vk::StridedDeviceAddressRegionKHR rayGen;
-            vk::StridedDeviceAddressRegionKHR miss;
-            vk::StridedDeviceAddressRegionKHR hitGroups;
-            vk::StridedDeviceAddressRegionKHR callable;
-            uint32_t version = 0;
-        } m_CurrentShaderTablePointers;
+        std::unordered_map<rt::IShaderTable*, std::unique_ptr<ShaderTableState>> m_UncachedShaderTableStates;
+        ShaderTableState& getShaderTableState(rt::IShaderTable* shaderTable);
 
         std::unordered_map<Buffer*, VolatileBufferState> m_VolatileBufferStates;
 
