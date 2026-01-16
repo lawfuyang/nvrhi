@@ -41,18 +41,6 @@
 #error "Vulkan SDK version 1.4.318 or later is required to compile NVRHI"
 #endif
 
-namespace std
-{
-    template<> struct hash<std::pair<vk::PipelineStageFlags, vk::PipelineStageFlags>>
-    {
-        std::size_t operator()(std::pair<vk::PipelineStageFlags, vk::PipelineStageFlags> const& s) const noexcept
-        {
-            return (std::hash<uint32_t>()(uint32_t(s.first))
-                ^ (std::hash<uint32_t>()(uint32_t(s.second)) << 16));
-        }
-    };
-}
-
 #define CHECK_VK_RETURN(res) if ((res) != vk::Result::eSuccess) { return res; }
 #define CHECK_VK_FAIL(res) if ((res) != vk::Result::eSuccess) { return nullptr; }
 #if _DEBUG
@@ -81,28 +69,15 @@ namespace nvrhi::vulkan
     struct ResourceStateMapping
     {
         ResourceStates nvrhiState;
-        vk::PipelineStageFlags stageFlags;
-        vk::AccessFlags accessMask;
-        vk::ImageLayout imageLayout;
-        ResourceStateMapping(ResourceStates nvrhiState, vk::PipelineStageFlags stageFlags, vk::AccessFlags accessMask, vk::ImageLayout imageLayout):
-            nvrhiState(nvrhiState), stageFlags(stageFlags), accessMask(accessMask), imageLayout(imageLayout) {}
-    };
-
-    struct ResourceStateMapping2 // for use with KHR_synchronization2
-    {
-        ResourceStates nvrhiState;
         vk::PipelineStageFlags2 stageFlags;
         vk::AccessFlags2 accessMask;
         vk::ImageLayout imageLayout;
-        ResourceStateMapping2(ResourceStates nvrhiState, vk::PipelineStageFlags2 stageFlags, vk::AccessFlags2 accessMask, vk::ImageLayout imageLayout) :
-            nvrhiState(nvrhiState), stageFlags(stageFlags), accessMask(accessMask), imageLayout(imageLayout) {}
     };
 
     vk::SamplerAddressMode convertSamplerAddressMode(SamplerAddressMode mode);
     vk::PipelineStageFlagBits2 convertShaderTypeToPipelineStageFlagBits(ShaderType shaderType);
     vk::ShaderStageFlagBits convertShaderTypeToShaderStageFlagBits(ShaderType shaderType);
     ResourceStateMapping convertResourceState(ResourceStates state, bool isImage);
-    ResourceStateMapping2 convertResourceState2(ResourceStates state, bool isImage);
     vk::PrimitiveTopology convertPrimitiveTopology(PrimitiveType topology);
     vk::PolygonMode convertFillMode(RasterFillMode mode);
     vk::CullModeFlagBits convertCullMode(RasterCullMode mode);
@@ -163,7 +138,6 @@ namespace nvrhi::vulkan
         vk::PipelineCache pipelineCache;
 
         struct {
-            bool KHR_synchronization2 = false;
             bool KHR_maintenance1 = false;
             bool EXT_debug_report = false;
             bool EXT_debug_marker = false;
@@ -1378,7 +1352,6 @@ namespace nvrhi::vulkan
         void buildTopLevelAccelStructInternal(AccelStruct* as, VkDeviceAddress instanceData, size_t numInstances, rt::AccelStructBuildFlags buildFlags, uint64_t currentVersion);
 
         void commitBarriersInternal();
-        void commitBarriersInternal_synchronization2();
     };
 
 } // namespace nvrhi::vulkan

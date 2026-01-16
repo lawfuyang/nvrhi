@@ -190,113 +190,13 @@ namespace nvrhi::vulkan
 
     void CommandList::commitBarriersInternal()
     {
-        std::vector<vk::ImageMemoryBarrier> imageBarriers;
-        std::vector<vk::BufferMemoryBarrier> bufferBarriers;
-        vk::PipelineStageFlags beforeStageFlags = vk::PipelineStageFlags(0);
-        vk::PipelineStageFlags afterStageFlags = vk::PipelineStageFlags(0);
-
-        for (const TextureBarrier& barrier : m_StateTracker.getTextureBarriers())
-        {
-            ResourceStateMapping before = convertResourceState(barrier.stateBefore, true);
-            ResourceStateMapping after = convertResourceState(barrier.stateAfter, true);
-
-            if ((before.stageFlags != beforeStageFlags || after.stageFlags != afterStageFlags) && !imageBarriers.empty())
-            {
-                m_CurrentCmdBuf->cmdBuf.pipelineBarrier(beforeStageFlags, afterStageFlags,
-                    vk::DependencyFlags(), {}, {}, imageBarriers);
-
-                imageBarriers.clear();
-            }
-
-            beforeStageFlags = before.stageFlags;
-            afterStageFlags = after.stageFlags;
-
-            assert(after.imageLayout != vk::ImageLayout::eUndefined);
-
-            Texture* texture = static_cast<Texture*>(barrier.texture);
-
-            const FormatInfo& formatInfo = getFormatInfo(texture->desc.format);
-
-            vk::ImageAspectFlags aspectMask = (vk::ImageAspectFlagBits)0;
-            if (formatInfo.hasDepth) aspectMask |= vk::ImageAspectFlagBits::eDepth;
-            if (formatInfo.hasStencil) aspectMask |= vk::ImageAspectFlagBits::eStencil;
-            if (!aspectMask) aspectMask = vk::ImageAspectFlagBits::eColor;
-
-            vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange()
-                .setBaseArrayLayer(barrier.entireTexture ? 0 : barrier.arraySlice)
-                .setLayerCount(barrier.entireTexture ? texture->desc.arraySize : 1)
-                .setBaseMipLevel(barrier.entireTexture ? 0 : barrier.mipLevel)
-                .setLevelCount(barrier.entireTexture ? texture->desc.mipLevels : 1)
-                .setAspectMask(aspectMask);
-
-            imageBarriers.push_back(vk::ImageMemoryBarrier()
-                .setSrcAccessMask(before.accessMask)
-                .setDstAccessMask(after.accessMask)
-                .setOldLayout(before.imageLayout)
-                .setNewLayout(after.imageLayout)
-                .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .setImage(texture->image)
-                .setSubresourceRange(subresourceRange));
-        }
-
-        if (!imageBarriers.empty())
-        {
-            m_CurrentCmdBuf->cmdBuf.pipelineBarrier(beforeStageFlags, afterStageFlags,
-                vk::DependencyFlags(), {}, {}, imageBarriers);
-        }
-
-        beforeStageFlags = vk::PipelineStageFlags(0);
-        afterStageFlags = vk::PipelineStageFlags(0);
-        imageBarriers.clear();
-
-        for (const BufferBarrier& barrier : m_StateTracker.getBufferBarriers())
-        {
-            ResourceStateMapping before = convertResourceState(barrier.stateBefore, false);
-            ResourceStateMapping after = convertResourceState(barrier.stateAfter, false);
-
-            if ((before.stageFlags != beforeStageFlags || after.stageFlags != afterStageFlags) && !bufferBarriers.empty())
-            {
-                m_CurrentCmdBuf->cmdBuf.pipelineBarrier(beforeStageFlags, afterStageFlags,
-                    vk::DependencyFlags(), {}, bufferBarriers, {});
-
-                bufferBarriers.clear();
-            }
-
-            beforeStageFlags = before.stageFlags;
-            afterStageFlags = after.stageFlags;
-
-            Buffer* buffer = static_cast<Buffer*>(barrier.buffer);
-
-            bufferBarriers.push_back(vk::BufferMemoryBarrier()
-                .setSrcAccessMask(before.accessMask)
-                .setDstAccessMask(after.accessMask)
-                .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .setBuffer(buffer->buffer)
-                .setOffset(0)
-                .setSize(buffer->desc.byteSize));
-        }
-
-        if (!bufferBarriers.empty())
-        {
-            m_CurrentCmdBuf->cmdBuf.pipelineBarrier(beforeStageFlags, afterStageFlags,
-                vk::DependencyFlags(), {}, bufferBarriers, {});
-        }
-        bufferBarriers.clear();
-
-        m_StateTracker.clearBarriers();
-    }
-
-    void CommandList::commitBarriersInternal_synchronization2()
-    {
         std::vector<vk::ImageMemoryBarrier2> imageBarriers;
         std::vector<vk::BufferMemoryBarrier2> bufferBarriers;
 
         for (const TextureBarrier& barrier : m_StateTracker.getTextureBarriers())
         {
-            ResourceStateMapping2 before = convertResourceState2(barrier.stateBefore, true);
-            ResourceStateMapping2 after = convertResourceState2(barrier.stateAfter, true);
+            ResourceStateMapping before = convertResourceState(barrier.stateBefore, true);
+            ResourceStateMapping after = convertResourceState(barrier.stateAfter, true);
 
             assert(after.imageLayout != vk::ImageLayout::eUndefined);
 
@@ -341,8 +241,8 @@ namespace nvrhi::vulkan
 
         for (const BufferBarrier& barrier : m_StateTracker.getBufferBarriers())
         {
-            ResourceStateMapping2 before = convertResourceState2(barrier.stateBefore, false);
-            ResourceStateMapping2 after = convertResourceState2(barrier.stateAfter, false);
+            ResourceStateMapping before = convertResourceState(barrier.stateBefore, false);
+            ResourceStateMapping after = convertResourceState(barrier.stateAfter, false);
 
             Buffer* buffer = static_cast<Buffer*>(barrier.buffer);
 
@@ -377,14 +277,7 @@ namespace nvrhi::vulkan
 
         endRenderPass();
 
-        if (m_Context.extensions.KHR_synchronization2)
-        {
-            commitBarriersInternal_synchronization2();
-        }
-        else
-        {
-            commitBarriersInternal();
-        }
+        commitBarriersInternal();
     }
 
     void CommandList::beginTrackingTextureState(ITexture* _texture, TextureSubresourceSet subresources, ResourceStates stateBits)

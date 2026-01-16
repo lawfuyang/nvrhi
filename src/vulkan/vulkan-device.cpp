@@ -86,7 +86,6 @@ namespace nvrhi::vulkan
             { VK_KHR_MAINTENANCE1_EXTENSION_NAME, &m_Context.extensions.KHR_maintenance1 },
             { VK_KHR_RAY_QUERY_EXTENSION_NAME,&m_Context.extensions.KHR_ray_query },
             { VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, &m_Context.extensions.KHR_ray_tracing_pipeline },
-            { VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME, &m_Context.extensions.KHR_synchronization2 },
             { VK_EXT_MESH_SHADER_EXTENSION_NAME, &m_Context.extensions.EXT_mesh_shader },
             { VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME, &m_Context.extensions.NV_ray_tracing_invocation_reorder },
             { VK_NV_CLUSTER_ACCELERATION_STRUCTURE_EXTENSION_NAME, &m_Context.extensions.NV_cluster_acceleration_structure },
@@ -203,12 +202,6 @@ namespace nvrhi::vulkan
         m_Context.coopVecProperties = nvCoopVecProperties;
         m_Context.messageCallback = desc.errorCB;
         m_Context.logBufferLifetime = desc.logBufferLifetime;
-
-        if (m_Context.extensions.EXT_opacity_micromap && !m_Context.extensions.KHR_synchronization2)
-        {
-            m_Context.warning(
-                "EXT_opacity_micromap is used without KHR_synchronization2 which is nessesary for OMM Array state transitions. Feature::RayTracingOpacityMicromap will be disabled.");
-        }
 
         if (m_Context.extensions.KHR_fragment_shading_rate)
         {
@@ -354,7 +347,7 @@ namespace nvrhi::vulkan
 #ifdef NVRHI_WITH_RTXMU
             return false; // RTXMU does not support OMMs
 #else
-            return m_Context.extensions.EXT_opacity_micromap && m_Context.extensions.KHR_synchronization2;
+            return m_Context.extensions.EXT_opacity_micromap;
 #endif
         case Feature::RayQuery:
             return m_Context.extensions.KHR_ray_query;
