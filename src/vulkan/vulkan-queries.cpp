@@ -324,17 +324,19 @@ namespace nvrhi::vulkan
             return false;
 
         // For Vulkan, we can check if the query is available
-        uint32_t available = 0;
+        constexpr uint32_t MaxPipelineStatistics = 13; // Maximum number of statistics we can query
+        uint64_t data[MaxPipelineStatistics]{};
+
         const vk::Result res = m_Context.device.getQueryPoolResults(
             m_PipelineStatisticsQueryPool,
             query->queryIndex,
             1,
-            sizeof(uint32_t),
-            &available,
+            sizeof(data),
+            data,
             0,
             vk::QueryResultFlagBits::eWait);
 
-        return res == vk::Result::eSuccess && available != 0;
+        return res == vk::Result::eSuccess;
     }
 
     void Device::resetPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
