@@ -460,6 +460,18 @@ namespace nvrhi::d3d11
         m_Context.immediateContext->UpdateSubresource(dest->resource, subresource, nullptr, data, UINT(rowPitch), UINT(depthPitch));
     }
 
+    // [rlaw] BEGIN: Copies a single 2D or 3D region of texture data from CPU memory.
+    void CommandList::writeTexture(ITexture* dest, const TextureSlice& destSlice, const void* data, size_t rowPitch, size_t depthPitch)
+    {
+        (void)dest;
+        (void)destSlice;
+        (void)data;
+        (void)rowPitch;
+        (void)depthPitch;
+        utils::NotSupported();
+    }
+    // [rlaw] END
+
     void CommandList::resolveTexture(ITexture* _dest, const TextureSubresourceSet& dstSubresources, ITexture* _src, const TextureSubresourceSet& srcSubresources)
     {
         Texture* dest = checked_cast<Texture*>(_dest);

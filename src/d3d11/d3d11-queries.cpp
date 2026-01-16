@@ -243,4 +243,44 @@ void Device::resetTimerQuery(ITimerQuery* _query)
     query->time = 0.f;
 }
 
+    // [rlaw] BEGIN: Pipeline Query support
+PipelineStatisticsQueryHandle Device::createPipelineStatisticsQuery()
+{
+    utils::NotSupported();
+    return nullptr;
+}
+
+void CommandList::beginPipelineStatisticsQuery(IPipelineStatisticsQuery* query)
+{
+    (void)query;
+    utils::NotSupported();
+}
+
+void CommandList::endPipelineStatisticsQuery(IPipelineStatisticsQuery* query)
+{
+    (void)query;
+    utils::NotSupported();
+}
+
+bool Device::pollPipelineStatisticsQuery(IPipelineStatisticsQuery* query)
+{
+    (void)query;
+    utils::NotSupported();
+    return false;
+}
+
+PipelineStatistics Device::getPipelineStatistics(IPipelineStatisticsQuery* query)
+{
+    (void)query;
+    utils::NotSupported();
+    return PipelineStatistics();
+}
+
+void Device::resetPipelineStatisticsQuery(IPipelineStatisticsQuery* query)
+{
+    (void)query;
+    utils::NotSupported();
+}
+    // [rlaw] END: Pipeline Query support
+
 } // namespace nvrhi::d3d11

@@ -171,6 +171,16 @@ namespace nvrhi::d3d11
         bool resolved = false;
         float time = 0.f;
     };
+
+    // [rlaw] BEGIN: Pipeline Query support
+    class PipelineStatisticsQuery : public RefCounter<IPipelineStatisticsQuery>
+    {
+    public:
+        RefCountPtr<ID3D11Query> query;
+        bool resolved = false;
+        PipelineStatistics data = {};
+    };
+    // [rlaw] END: Pipeline Query support
     
     class InputLayout : public RefCounter<IInputLayout>
     {
@@ -310,6 +320,9 @@ namespace nvrhi::d3d11
         void copyTexture(IStagingTexture* dest, const TextureSlice& destSlice, ITexture* src, const TextureSlice& srcSlice) override;
         void copyTexture(ITexture* dest, const TextureSlice& destSlice, IStagingTexture* src, const TextureSlice& srcSlice) override;
         void writeTexture(ITexture* dest, uint32_t arraySlice, uint32_t mipLevel, const void* data, size_t rowPitch, size_t depthPitch) override;
+        // [rlaw] BEGIN: Copies a single 2D or 3D region of texture data from CPU memory.
+        void writeTexture(ITexture* dest, const TextureSlice& destSlice, const void* data, size_t rowPitch, size_t depthPitch = 0) override;
+        // [rlaw] END
         void resolveTexture(ITexture* dest, const TextureSubresourceSet& dstSubresources, ITexture* src, const TextureSubresourceSet& srcSubresources) override;
 
         void writeBuffer(IBuffer* b, const void* data, size_t dataSize, uint64_t destOffsetBytes = 0) override;
@@ -330,6 +343,7 @@ namespace nvrhi::d3d11
 
         void setMeshletState(const MeshletState& state) override;
         void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;
+        void dispatchMeshIndirect(uint32_t offsetBytes) override; // [rlaw]: support dispatchMeshIndirect
 
         void setRayTracingState(const rt::State& state) override;
         void dispatchRays(const rt::DispatchRaysArguments& args) override;
@@ -346,6 +360,11 @@ namespace nvrhi::d3d11
 
         void beginTimerQuery(ITimerQuery* query) override;
         void endTimerQuery(ITimerQuery* query) override;
+
+        // [rlaw] BEGIN: Pipeline Query support
+        void beginPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
+        void endPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
+        // [rlaw] END: Pipeline Query support
 
         // perf markers
         void beginMarker(const char* name) override;
@@ -484,6 +503,14 @@ namespace nvrhi::d3d11
         bool pollTimerQuery(ITimerQuery* query) override;
         float getTimerQueryTime(ITimerQuery* query) override;
         void resetTimerQuery(ITimerQuery* query) override;
+
+        // [rlaw] BEGIN: Pipeline Query support
+        // pipeline statistics queries
+        PipelineStatisticsQueryHandle createPipelineStatisticsQuery() override;
+        bool pollPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
+        PipelineStatistics getPipelineStatistics(IPipelineStatisticsQuery* query) override;
+        void resetPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
+        // [rlaw] END: Pipeline Query support
 
         GraphicsAPI getGraphicsAPI() override;
 
