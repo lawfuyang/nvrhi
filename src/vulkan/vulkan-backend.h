@@ -138,7 +138,6 @@ namespace nvrhi::vulkan
         vk::PipelineCache pipelineCache;
 
         struct {
-            bool KHR_maintenance1 = false;
             bool EXT_debug_report = false;
             bool EXT_debug_marker = false;
             bool KHR_acceleration_structure = false;
