@@ -725,6 +725,27 @@ namespace nvrhi::vulkan
         utils::BitSetAllocator& m_QueryAllocator;
     };
 
+    // [rlaw] BEGIN: PipelineStatisticsQuery
+    class PipelineStatisticsQuery : public RefCounter<IPipelineStatisticsQuery>
+    {
+    public:
+        int queryIndex = -1;
+
+        bool started = false;
+        bool resolved = false;
+        PipelineStatistics statistics = {};
+
+        explicit PipelineStatisticsQuery(utils::BitSetAllocator& allocator)
+            : m_QueryAllocator(allocator)
+        { }
+
+        ~PipelineStatisticsQuery() override;
+
+    private:
+        utils::BitSetAllocator& m_QueryAllocator;
+    };
+    // [rlaw] END: PipelineStatisticsQuery
+
     class Framebuffer : public RefCounter<IFramebuffer>
     {
     public:
@@ -1072,6 +1093,7 @@ namespace nvrhi::vulkan
 
         Queue* getQueue(CommandQueue queue) const { return m_Queues[int(queue)].get(); }
         vk::QueryPool getTimerQueryPool() const { return m_TimerQueryPool; }
+        vk::QueryPool getPipelineStatisticsQueryPool() const { return m_PipelineStatisticsQueryPool; } // [rlaw] Pipeline Query support
 
         // IResource implementation
 
@@ -1128,11 +1150,10 @@ namespace nvrhi::vulkan
         void resetTimerQuery(ITimerQuery* query) override;
 
         // [rlaw] BEGIN: Pipeline Query support
-        // TODO
-        PipelineStatisticsQueryHandle createPipelineStatisticsQuery() override { return {}; }
-        PipelineStatistics getPipelineStatistics(IPipelineStatisticsQuery*) override { return {}; }
-        bool pollPipelineStatisticsQuery(IPipelineStatisticsQuery*) override { return {}; }
-        void resetPipelineStatisticsQuery(IPipelineStatisticsQuery*) override {}
+        PipelineStatisticsQueryHandle createPipelineStatisticsQuery() override;
+        PipelineStatistics getPipelineStatistics(IPipelineStatisticsQuery* query) override;
+        bool pollPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
+        void resetPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
         // [rlaw] END: Pipeline Query support
 
         GraphicsAPI getGraphicsAPI() override;
@@ -1197,6 +1218,11 @@ namespace nvrhi::vulkan
         
         vk::QueryPool m_TimerQueryPool = nullptr;
         utils::BitSetAllocator m_TimerQueryAllocator;
+
+        // [rlaw] BEGIN: Pipeline Query support
+        vk::QueryPool m_PipelineStatisticsQueryPool = nullptr;
+        utils::BitSetAllocator m_PipelineStatisticsQueryAllocator;
+        // [rlaw] END: Pipeline Query support
 
         std::mutex m_Mutex;
 
@@ -1308,9 +1334,9 @@ namespace nvrhi::vulkan
 
         TrackedCommandBufferPtr getCurrentCmdBuf() const { return m_CurrentCmdBuf; }
 
-        // [rlaw] BEGIN: Pipeline Query support. TODO
-        void beginPipelineStatisticsQuery(IPipelineStatisticsQuery*) override {}
-        void endPipelineStatisticsQuery(IPipelineStatisticsQuery*) override {}
+        // [rlaw] BEGIN: Pipeline Query support
+        void beginPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
+        void endPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override;
         // [rlaw] END: Pipeline Query support
 
     private:

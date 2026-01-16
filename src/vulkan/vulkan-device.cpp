@@ -54,6 +54,7 @@ namespace nvrhi::vulkan
         : m_Context(desc.instance, desc.physicalDevice, desc.device, reinterpret_cast<vk::AllocationCallbacks*>(desc.allocationCallbacks))
         , m_Allocator(m_Context)
         , m_TimerQueryAllocator(desc.maxTimerQueries, true)
+        , m_PipelineStatisticsQueryAllocator(desc.maxPipelineStatisticsQueries, true) // [rlaw] Pipeline Query support
     {
         if (desc.graphicsQueue)
         {
@@ -281,6 +282,14 @@ namespace nvrhi::vulkan
             m_Context.device.destroyQueryPool(m_TimerQueryPool);
             m_TimerQueryPool = vk::QueryPool();
         }
+
+        // [rlaw] BEGIN: Pipeline Query support
+        if (m_PipelineStatisticsQueryPool)
+        {
+            m_Context.device.destroyQueryPool(m_PipelineStatisticsQueryPool);
+            m_PipelineStatisticsQueryPool = vk::QueryPool();
+        }
+        // [rlaw] END: Pipeline Query support
 
         if (m_Context.pipelineCache)
         {

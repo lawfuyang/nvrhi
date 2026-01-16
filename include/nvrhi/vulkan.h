@@ -72,6 +72,7 @@ namespace nvrhi::vulkan
         size_t numDeviceExtensions = 0;
 
         uint32_t maxTimerQueries = 256;
+        uint32_t maxPipelineStatisticsQueries = 16;
 
         // Indicates if VkPhysicalDeviceVulkan12Features::bufferDeviceAddress was set to 'true' at device creation time
         bool bufferDeviceAddressSupported = false;

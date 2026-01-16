@@ -113,6 +113,14 @@ namespace nvrhi::vulkan
         endQueryIndex = -1;
     }
 
+    // [rlaw] BEGIN: Pipeline Query support
+    PipelineStatisticsQuery::~PipelineStatisticsQuery()
+    {
+        m_QueryAllocator.release(queryIndex);
+        queryIndex = -1;
+    }
+    // [rlaw] END: Pipeline Query support
+
     void CommandList::beginTimerQuery(ITimerQuery* _query)
     {
         endRenderPass();
@@ -209,6 +217,166 @@ namespace nvrhi::vulkan
         query->time = 0.f;
     }
 
+    // [rlaw] BEGIN: Pipeline Query support
+    PipelineStatisticsQueryHandle Device::createPipelineStatisticsQuery()
+    {
+        if (!m_PipelineStatisticsQueryPool)
+        {
+            std::lock_guard lockGuard(m_Mutex);
+
+            if (!m_PipelineStatisticsQueryPool)
+            {
+                // set up the pipeline statistics query pool on first use
+                vk::QueryPipelineStatisticFlags flags = 
+                    vk::QueryPipelineStatisticFlagBits::eInputAssemblyVertices |
+                    vk::QueryPipelineStatisticFlagBits::eInputAssemblyPrimitives |
+                    vk::QueryPipelineStatisticFlagBits::eVertexShaderInvocations |
+                    vk::QueryPipelineStatisticFlagBits::eGeometryShaderInvocations |
+                    vk::QueryPipelineStatisticFlagBits::eGeometryShaderPrimitives |
+                    vk::QueryPipelineStatisticFlagBits::eClippingInvocations |
+                    vk::QueryPipelineStatisticFlagBits::eClippingPrimitives |
+                    vk::QueryPipelineStatisticFlagBits::eFragmentShaderInvocations |
+                    vk::QueryPipelineStatisticFlagBits::eTessellationControlShaderPatches |
+                    vk::QueryPipelineStatisticFlagBits::eTessellationEvaluationShaderInvocations |
+                    vk::QueryPipelineStatisticFlagBits::eComputeShaderInvocations;
+
+                if (m_Context.extensions.NV_mesh_shader)
+                {
+                    flags |= vk::QueryPipelineStatisticFlagBits::eTaskShaderInvocationsEXT |
+                             vk::QueryPipelineStatisticFlagBits::eMeshShaderInvocationsEXT;
+                }
+
+                auto poolInfo = vk::QueryPoolCreateInfo()
+                    .setQueryType(vk::QueryType::ePipelineStatistics)
+                    .setQueryCount(uint32_t(m_PipelineStatisticsQueryAllocator.getCapacity()))
+                    .setPipelineStatistics(flags);
+
+                const vk::Result res = m_Context.device.createQueryPool(&poolInfo, m_Context.allocationCallbacks, &m_PipelineStatisticsQueryPool);
+                CHECK_VK_FAIL(res)
+            }
+        }
+
+        int queryIndex = m_PipelineStatisticsQueryAllocator.allocate();
+
+        if (queryIndex < 0)
+        {
+            m_Context.error("Insufficient pipeline statistics query pool space");
+            return nullptr;
+        }
+
+        PipelineStatisticsQuery* query = new PipelineStatisticsQuery(m_PipelineStatisticsQueryAllocator);
+        query->queryIndex = queryIndex;
+
+        return PipelineStatisticsQueryHandle::Create(query);
+    }
+    
+    PipelineStatistics Device::getPipelineStatistics(IPipelineStatisticsQuery* _query)
+    {
+        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
+
+        if (!query->resolved)
+        {
+            constexpr uint32_t MaxPipelineStatistics = 13; // Maximum number of statistics we can query
+            uint64_t data[MaxPipelineStatistics]{};
+
+            const uint32_t numStats = m_Context.extensions.NV_mesh_shader ? 13 : 11;
+
+            const vk::Result res = m_Context.device.getQueryPoolResults(
+                m_PipelineStatisticsQueryPool,
+                query->queryIndex,
+                1,
+                numStats * sizeof(uint64_t),
+                data,
+                sizeof(uint64_t),
+                vk::QueryResultFlagBits::e64);
+
+            if (res == vk::Result::eSuccess)
+            {
+                query->resolved = true;
+                query->statistics.IAVertices = data[0];  // INPUT_ASSEMBLY_VERTICES
+                query->statistics.IAPrimitives = data[1]; // INPUT_ASSEMBLY_PRIMITIVES
+                query->statistics.VSInvocations = data[2]; // VERTEX_SHADER_INVOCATIONS
+                query->statistics.GSInvocations = data[3]; // GEOMETRY_SHADER_INVOCATIONS
+                query->statistics.GSPrimitives = data[4]; // GEOMETRY_SHADER_PRIMITIVES
+                query->statistics.CInvocations = data[5]; // CLIPPING_INVOCATIONS
+                query->statistics.CPrimitives = data[6]; // CLIPPING_PRIMITIVES
+                query->statistics.PSInvocations = data[7]; // FRAGMENT_SHADER_INVOCATIONS
+                query->statistics.HSInvocations = data[8]; // TESSELLATION_CONTROL_SHADER_PATCHES
+                query->statistics.DSInvocations = data[9]; // TESSELLATION_EVALUATION_SHADER_INVOCATIONS
+                query->statistics.CSInvocations = data[10]; // COMPUTE_SHADER_INVOCATIONS
+                if (m_Context.extensions.NV_mesh_shader)
+                {
+                    query->statistics.ASInvocations = data[11]; // TASK_SHADER_INVOCATIONS_EXT
+                    query->statistics.MSInvocations = data[12]; // MESH_SHADER_INVOCATIONS_EXT
+                }
+                // MSPrimitives is not available in Vulkan
+            }
+        }
+
+        return query->statistics;
+    }
+    
+    bool Device::pollPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
+    {
+        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
+
+        if (!query->started)
+            return false;
+
+        // For Vulkan, we can check if the query is available
+        uint32_t available = 0;
+        const vk::Result res = m_Context.device.getQueryPoolResults(
+            m_PipelineStatisticsQueryPool,
+            query->queryIndex,
+            1,
+            sizeof(uint32_t),
+            &available,
+            0,
+            vk::QueryResultFlagBits::eWait);
+
+        return res == vk::Result::eSuccess && available != 0;
+    }
+
+    void Device::resetPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
+    {
+        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
+
+        query->started = false;
+        query->resolved = false;
+        memset(&query->statistics, 0, sizeof(PipelineStatistics));
+    }
+    
+    void CommandList::beginPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
+    {
+        endRenderPass();
+
+        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
+
+        assert(query->queryIndex >= 0);
+        assert(!query->started);
+        assert(m_CurrentCmdBuf);
+
+        query->resolved = false;
+
+        m_CurrentCmdBuf->cmdBuf.resetQueryPool(m_Device->getPipelineStatisticsQueryPool(), query->queryIndex, 1);
+        m_CurrentCmdBuf->cmdBuf.beginQuery(m_Device->getPipelineStatisticsQueryPool(), query->queryIndex, vk::QueryControlFlags());
+    }
+
+    void CommandList::endPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
+    {
+        endRenderPass();
+
+        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
+
+        assert(query->queryIndex >= 0);
+        assert(!query->started);
+        assert(!query->resolved);
+        assert(m_CurrentCmdBuf);
+
+        m_CurrentCmdBuf->cmdBuf.endQuery(m_Device->getPipelineStatisticsQueryPool(), query->queryIndex);
+        query->started = true;
+    }
+    // [rlaw] END: Pipeline Query support
 
     void CommandList::beginMarker(const char* name)
     {
