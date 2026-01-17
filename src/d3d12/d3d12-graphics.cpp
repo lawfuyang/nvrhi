@@ -576,7 +576,6 @@ namespace nvrhi::d3d12
 
         updateGraphicsVolatileBuffers();
 
-        // [rlaw]: added indirect count params & countBufferOffsetBytes
         m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.drawIndirectSignature, drawCount, indirectParams->resource, offsetBytes, nullptr, 0);
     }
 
@@ -587,7 +586,6 @@ namespace nvrhi::d3d12
 
         updateGraphicsVolatileBuffers();
 
-        // [rlaw]: added indirect count params & countBufferOffsetBytes
         m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.drawIndexedIndirectSignature, drawCount, indirectParams->resource, offsetBytes, nullptr, 0);
     }
     

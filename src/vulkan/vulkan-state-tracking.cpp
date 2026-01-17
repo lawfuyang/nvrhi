@@ -128,6 +128,13 @@ namespace nvrhi::vulkan
             requireBufferState(state.indirectParams, ResourceStates::IndirectArgument);
         }
 
+        // [rlaw] BEGIN: handle indirect count buffer
+        if (state.indirectCountParams && (m_BindingStatesDirty || state.indirectCountParams != m_CurrentGraphicsState.indirectCountParams))
+        {
+            requireBufferState(state.indirectCountParams, ResourceStates::IndirectArgument);
+        }
+        // [rlaw] END: handle indirect count buffer
+
         m_BindingStatesDirty = false;
     }
 
