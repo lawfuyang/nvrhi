@@ -592,11 +592,18 @@ namespace nvrhi::vulkan
         VulkanAllocator& m_Allocator;
     };
     
-    struct StagingTextureRegion
+    struct PlacedSubresourceFootprint
     {
         // offset, size in bytes
-        off_t offset;
-        size_t size;
+        size_t offset;
+        size_t totalBytes;
+        uint32_t rowSizeInBytes;
+        uint32_t numRows;
+        Format format;
+        uint32_t width;
+        uint32_t height;
+        uint32_t depth;
+        uint32_t rowPitch;
     };
 
     class StagingTexture : public RefCounter<IStagingTexture>
@@ -607,19 +614,11 @@ namespace nvrhi::vulkan
         RefCountPtr<Buffer> buffer;
         // per-mip, per-slice regions
         // offset = mipLevel * numDepthSlices + depthSlice
-        std::vector<StagingTextureRegion> sliceRegions;
+        std::vector<PlacedSubresourceFootprint> placedFootprints;
 
-        size_t computeSliceSize(uint32_t mipLevel);
-        const StagingTextureRegion& getSliceRegion(uint32_t mipLevel, uint32_t arraySlice, uint32_t z);
-        void populateSliceRegions();
-
-        size_t getBufferSize()
-        {
-            assert(sliceRegions.size());
-            size_t size = sliceRegions.back().offset + sliceRegions.back().size;
-            assert(size > 0);
-            return size;
-        }
+        size_t computeCopyableFootprints();
+        const PlacedSubresourceFootprint& getCopyableFootprint(uint32_t mipLevel,
+                                                               uint32_t arraySlice);
         
         const TextureDesc& getDesc() const override { return desc; }
     };
