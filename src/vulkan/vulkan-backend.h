@@ -612,13 +612,11 @@ namespace nvrhi::vulkan
         TextureDesc desc;
         // backing store for staging texture is a buffer
         RefCountPtr<Buffer> buffer;
-        // per-mip, per-slice regions
-        // offset = mipLevel * numDepthSlices + depthSlice
+        // Per-mip, per-slice regions: index = mipLevel * arraySize + arraySlice
         std::vector<PlacedSubresourceFootprint> placedFootprints;
 
         size_t computeCopyableFootprints();
-        const PlacedSubresourceFootprint& getCopyableFootprint(uint32_t mipLevel,
-                                                               uint32_t arraySlice);
+        const PlacedSubresourceFootprint* getCopyableFootprint(MipLevel mipLevel, ArraySlice arraySlice);
         
         const TextureDesc& getDesc() const override { return desc; }
     };
