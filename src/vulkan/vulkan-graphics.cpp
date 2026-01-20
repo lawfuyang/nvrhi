@@ -636,6 +636,11 @@ namespace nvrhi::vulkan
         {
             m_CurrentCmdBuf->referencedResources.push_back(state.indirectParams);
         }
+        
+        if (state.indirectCountBuffer && state.indirectCountBuffer != state.indirectParams)
+        {
+            m_CurrentCmdBuf->referencedResources.push_back(state.indirectCountBuffer);
+        }
 
         if (state.shadingRateState.enabled)
         {
@@ -712,22 +717,22 @@ namespace nvrhi::vulkan
         m_CurrentCmdBuf->cmdBuf.drawIndexedIndirect(indirectParams->buffer, offsetBytes, drawCount, sizeof(DrawIndexedIndirectArguments));
     }
 
-    void CommandList::drawIndexedIndirectCount(uint32_t offsetBytes, uint32_t maxDrawCount)
+    void CommandList::drawIndexedIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount)
     {
         assert(m_CurrentCmdBuf);
 
         updateGraphicsVolatileBuffers();
 
-        Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectParams);
-        Buffer* countBuf = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectCountBuffer);
-        assert(indirectParams);
-        assert(countBuf);
+        Buffer* paramBuffer = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectParams);
+        Buffer* countBuffer = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectCountBuffer);
+        assert(paramBuffer);
+        assert(countBuffer);
 
         m_CurrentCmdBuf->cmdBuf.drawIndexedIndirectCount(
-            indirectParams->buffer,
-            offsetBytes,
-            countBuf->buffer,
-            m_CurrentGraphicsState.indirectCountOffset,
+            paramBuffer->buffer,
+            paramOffsetBytes,
+            countBuffer->buffer,
+            countOffsetBytes,
             maxDrawCount,
             sizeof(DrawIndexedIndirectArguments)
         );

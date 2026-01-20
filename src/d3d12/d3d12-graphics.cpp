@@ -303,6 +303,7 @@ namespace nvrhi::d3d12
 
         const bool updatePipeline = !m_CurrentGraphicsStateValid || m_CurrentGraphicsState.pipeline != state.pipeline;
         const bool updateIndirectParams = !m_CurrentGraphicsStateValid || m_CurrentGraphicsState.indirectParams != state.indirectParams;
+        const bool updateIndirectCountBuffer = !m_CurrentGraphicsStateValid || m_CurrentGraphicsState.indirectCountBuffer != state.indirectCountBuffer;
 
         const bool updateViewports = !m_CurrentGraphicsStateValid ||
             arraysAreDifferent(m_CurrentGraphicsState.viewport.viewports, state.viewport.viewports) ||
@@ -357,7 +358,10 @@ namespace nvrhi::d3d12
             setResourceStatesForFramebuffer(framebuffer);
         }
 
-        setGraphicsBindings(state.bindings, bindingUpdateMask, state.indirectParams, updateIndirectParams, pso->rootSignature);
+        setGraphicsBindings(state.bindings, bindingUpdateMask,
+            state.indirectParams, updateIndirectParams,
+            state.indirectCountBuffer, updateIndirectCountBuffer,
+            pso->rootSignature);
 
         if (updateIndexBuffer)
         {
@@ -589,22 +593,22 @@ namespace nvrhi::d3d12
         m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.drawIndexedIndirectSignature, drawCount, indirectParams->resource, offsetBytes, nullptr, 0);
     }
 
-    void CommandList::drawIndexedIndirectCount(uint32_t offsetBytes, uint32_t maxDrawCount)
+    void CommandList::drawIndexedIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount)
     {
-        Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectParams);
-        Buffer* countBuf = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectCountBuffer);
-        assert(indirectParams);
-        assert(countBuf);
+        Buffer* paramBuffer = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectParams);
+        Buffer* countBuffer = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectCountBuffer);
+        assert(paramBuffer);
+        assert(countBuffer);
 
         updateGraphicsVolatileBuffers();
 
         m_ActiveCommandList->commandList->ExecuteIndirect(
             m_Context.drawIndexedIndirectSignature,
             maxDrawCount,
-            indirectParams->resource,
-            offsetBytes,
-            countBuf->resource,
-            m_CurrentGraphicsState.indirectCountOffset
+            paramBuffer->resource,
+            paramOffsetBytes,
+            countBuffer->resource,
+            countOffsetBytes
         );
     }
 
