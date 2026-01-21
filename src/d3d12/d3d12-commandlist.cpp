@@ -329,7 +329,7 @@ namespace nvrhi::d3d12
 
         m_CurrentUploadBuffer = nullptr;
         m_VolatileConstantBufferAddresses.clear();
-        m_ShaderTableStates.clear();
+        m_UncachedShaderTableStates.clear();
     }
 
     std::shared_ptr<CommandListInstance> CommandList::executed(Queue* pQueue)

@@ -91,6 +91,8 @@ namespace nvrhi::vulkan
         clearState();
 
         flushVolatileBufferWrites();
+        
+        m_UncachedShaderTableStates.clear();
     }
 
     void CommandList::clearState()
@@ -104,7 +106,6 @@ namespace nvrhi::vulkan
         m_CurrentComputeState = ComputeState();
         m_CurrentMeshletState = MeshletState();
         m_CurrentRayTracingState = rt::State();
-        m_CurrentShaderTablePointers = ShaderTableState();
 
         m_AnyVolatileBufferWrites = false;
 
