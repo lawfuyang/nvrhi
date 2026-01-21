@@ -2689,8 +2689,6 @@ namespace nvrhi
         IBuffer* indirectParams = nullptr;
         IBuffer* indirectCountBuffer = nullptr;
 
-        IBuffer* indirectCountParams = nullptr; // [rlaw] for DrawIndirectCount
-
         GraphicsState& setPipeline(IGraphicsPipeline* value) { pipeline = value; return *this; }
         GraphicsState& setFramebuffer(IFramebuffer* value) { framebuffer = value; return *this; }
         GraphicsState& setViewport(const ViewportState& value) { viewport = value; return *this; }

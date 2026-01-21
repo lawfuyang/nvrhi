@@ -240,7 +240,7 @@ namespace nvrhi::vulkan
                     vk::QueryPipelineStatisticFlagBits::eTessellationEvaluationShaderInvocations |
                     vk::QueryPipelineStatisticFlagBits::eComputeShaderInvocations;
 
-                if (m_Context.extensions.NV_mesh_shader)
+                if (m_Context.extensions.EXT_mesh_shader)
                 {
                     flags |= vk::QueryPipelineStatisticFlagBits::eTaskShaderInvocationsEXT |
                              vk::QueryPipelineStatisticFlagBits::eMeshShaderInvocationsEXT;
@@ -279,7 +279,7 @@ namespace nvrhi::vulkan
             constexpr uint32_t MaxPipelineStatistics = 13; // Maximum number of statistics we can query
             uint64_t data[MaxPipelineStatistics]{};
 
-            const uint32_t numStats = m_Context.extensions.NV_mesh_shader ? 13 : 11;
+            const uint32_t numStats = m_Context.extensions.EXT_mesh_shader ? 13 : 11;
 
             const vk::Result res = m_Context.device.getQueryPoolResults(
                 m_PipelineStatisticsQueryPool,
@@ -304,7 +304,7 @@ namespace nvrhi::vulkan
                 query->statistics.HSInvocations = data[8]; // TESSELLATION_CONTROL_SHADER_PATCHES
                 query->statistics.DSInvocations = data[9]; // TESSELLATION_EVALUATION_SHADER_INVOCATIONS
                 query->statistics.CSInvocations = data[10]; // COMPUTE_SHADER_INVOCATIONS
-                if (m_Context.extensions.NV_mesh_shader)
+                if (m_Context.extensions.EXT_mesh_shader)
                 {
                     query->statistics.ASInvocations = data[11]; // TASK_SHADER_INVOCATIONS_EXT
                     query->statistics.MSInvocations = data[12]; // MESH_SHADER_INVOCATIONS_EXT

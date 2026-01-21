@@ -635,13 +635,6 @@ namespace nvrhi::vulkan
         if (state.indirectParams)
         {
             m_CurrentCmdBuf->referencedResources.push_back(state.indirectParams);
-
-            // [rlaw] BEGIN: handle indirect count buffer
-            if (state.indirectCountParams)
-            {
-                m_CurrentCmdBuf->referencedResources.push_back(state.indirectCountParams);
-            }
-            // [rlaw] END: handle indirect count buffer
         }
         
         if (state.indirectCountBuffer && state.indirectCountBuffer != state.indirectParams)
@@ -709,21 +702,6 @@ namespace nvrhi::vulkan
         Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectParams);
         assert(indirectParams);
 
-        // [rlaw] BEGIN: vkCmdDrawIndexedIndirectCount
-        if (Buffer* indirectCountParams = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectCountParams))
-        {
-            // Use vkCmdDrawIndirectCount if an indirect count buffer is provided
-            m_CurrentCmdBuf->cmdBuf.drawIndirectCountKHR(
-                indirectParams->buffer,
-                offsetBytes,
-                indirectCountParams->buffer,
-                0, // offset within the count buffer
-                drawCount,
-                sizeof(DrawIndirectArguments));
-            return;
-        }
-        // [rlaw] END: vkCmdDrawIndexedIndirectCount
-
         m_CurrentCmdBuf->cmdBuf.drawIndirect(indirectParams->buffer, offsetBytes, drawCount, sizeof(DrawIndirectArguments));
     }
 
@@ -735,19 +713,6 @@ namespace nvrhi::vulkan
 
         Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectParams);
         assert(indirectParams);
-
-        if (Buffer* indirectCountParams = checked_cast<Buffer*>(m_CurrentGraphicsState.indirectCountParams))
-        {
-            // Use vkCmdDrawIndexedIndirectCount if an indirect count buffer is provided
-            m_CurrentCmdBuf->cmdBuf.drawIndexedIndirectCountKHR(
-                indirectParams->buffer,
-                offsetBytes,
-                indirectCountParams->buffer,
-                0, // offset within the count buffer
-                drawCount,
-                sizeof(DrawIndexedIndirectArguments));
-            return;
-        }
 
         m_CurrentCmdBuf->cmdBuf.drawIndexedIndirect(indirectParams->buffer, offsetBytes, drawCount, sizeof(DrawIndexedIndirectArguments));
     }
