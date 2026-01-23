@@ -173,17 +173,19 @@ namespace nvrhi::vulkan
         StagingTexture* dst = checked_cast<StagingTexture*>(_dst);
 
         TextureSlice const resolvedSrcSlice = srcSlice.resolve(src->desc);
+        TextureSlice const resolvedDstSlice = dstSlice.resolve(dst->desc);
 
-        assert(dstSlice.depth == 1);
+        assert(resolvedDstSlice.depth == 1);
         
         PlacedSubresourceFootprint const* dstFootprint = dst->getCopyableFootprint(
-            dstSlice.mipLevel, dstSlice.arraySlice);
+            resolvedDstSlice.mipLevel, resolvedDstSlice.arraySlice);
 
         assert(dstFootprint);
         if (!dstFootprint)
             return;
 
-        size_t dstBufferOffset = computePlacedBufferOffset(*dstFootprint, dstSlice.x, dstSlice.y, dstSlice.z);
+        size_t dstBufferOffset = computePlacedBufferOffset(*dstFootprint,
+            resolvedDstSlice.x, resolvedDstSlice.y, resolvedDstSlice.z);
         assert((dstBufferOffset & 0x3) == 0);  // per Vulkan spec
 
         TextureSubresourceSet srcSubresource = TextureSubresourceSet(
@@ -228,6 +230,7 @@ namespace nvrhi::vulkan
         Texture* dst = checked_cast<Texture*>(_dst);
 
         TextureSlice const resolvedSrcSlice = srcSlice.resolve(src->desc);
+        TextureSlice const resolvedDstSlice = dstSlice.resolve(dst->desc);
 
         PlacedSubresourceFootprint const* srcFootprint = src->getCopyableFootprint(
             resolvedSrcSlice.mipLevel, resolvedSrcSlice.arraySlice);
@@ -240,8 +243,8 @@ namespace nvrhi::vulkan
         assert((srcBufferOffset & 0x3) == 0);  // per vulkan spec
 
         TextureSubresourceSet dstSubresource = TextureSubresourceSet(
-            dstSlice.mipLevel, 1,
-            dstSlice.arraySlice, 1
+            resolvedDstSlice.mipLevel, 1,
+            resolvedDstSlice.arraySlice, 1
         );
 
         auto imageCopy = vk::BufferImageCopy()
@@ -251,10 +254,10 @@ namespace nvrhi::vulkan
             .setImageSubresource(
                 vk::ImageSubresourceLayers()
                     .setAspectMask(guessImageAspectFlags(dst->imageInfo.format))
-                    .setMipLevel(dstSlice.mipLevel)
-                    .setBaseArrayLayer(dstSlice.arraySlice)
+                    .setMipLevel(resolvedDstSlice.mipLevel)
+                    .setBaseArrayLayer(resolvedDstSlice.arraySlice)
                     .setLayerCount(1))
-            .setImageOffset(vk::Offset3D(dstSlice.x, dstSlice.y, dstSlice.z))
+            .setImageOffset(vk::Offset3D(resolvedDstSlice.x, resolvedDstSlice.y, resolvedDstSlice.z))
             .setImageExtent(vk::Extent3D(resolvedSrcSlice.width, resolvedSrcSlice.height, resolvedSrcSlice.depth));
 
         assert(m_CurrentCmdBuf);
