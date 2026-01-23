@@ -319,14 +319,14 @@ namespace nvrhi::d3d12
     }
 
     // [rlaw] BEGIN: support dispatchMeshIndirect
-    void CommandList::dispatchMeshIndirect(uint32_t offsetBytes)
+    void CommandList::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount)
     {
         Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentMeshletState.indirectParams);
         assert(indirectParams); // validation layer handles this
 
         updateGraphicsVolatileBuffers();
         
-        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchMeshIndirectSignature, 1, indirectParams->resource, offsetBytes, nullptr, 0);
+        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchMeshIndirectSignature, maxDrawCount, indirectParams->resource, offsetBytes, nullptr, 0);
     }
     // [rlaw] END: support dispatchMeshIndirect
 

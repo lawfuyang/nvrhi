@@ -1279,7 +1279,7 @@ namespace nvrhi::vulkan
 
         void setMeshletState(const MeshletState& state) override;
         void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;
-        void dispatchMeshIndirect(uint32_t) override {} // [rlaw]: support dispatchMeshIndirect. TODO
+        void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount) override; // [rlaw]: dispatchMeshIndirect
 
         void setRayTracingState(const rt::State& state) override;
         void dispatchRays(const rt::DispatchRaysArguments& args) override;

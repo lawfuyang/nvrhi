@@ -3391,7 +3391,17 @@ namespace nvrhi
         // - DX12: Maps to DispatchMesh.
         // - Vulkan: Maps to vkCmdDispatchMesh.
         virtual void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) = 0;
-        virtual void dispatchMeshIndirect(uint32_t offsetBytes) = 0; // [rlaw]: support dispatchMeshIndirect
+
+        // [rlaw] BEGIN: dispatchMeshIndirect
+        // Draws meshlet primitives using the parameters provided in the indirect buffer specified in the prior
+        // call to setMeshletState(...). The memory layout in the buffer is the same for all graphics APIs and is
+        // described by the DispatchIndirectArguments structure.
+        // See the comment to dispatchMesh(...) for state information.
+        // - DX11: Not supported.
+        // - DX12: Maps to ExecuteIndirect with a predefined signature.
+        // - Vulkan: Maps to vkCmdDrawMeshTasksIndirectEXT.
+        virtual void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount = 1) = 0;
+        // [rlaw] END: dispatchMeshIndirect
 
         // Sets the specified ray tracing state on the command list.
         // The state includes the shader table, which references the pipeline, and all bound resources.

@@ -233,10 +233,13 @@ namespace nvrhi::d3d11
         utils::NotSupported();
     }
 
-    void CommandList::dispatchMeshIndirect(uint32_t offsetBytes) // [rlaw]: support dispatchMeshIndirect
+    // [rlaw] BEGIN: support dispatchMeshIndirect
+    void CommandList::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount)
     {
         (void)offsetBytes;
+        (void)maxDrawCount;
         utils::NotSupported();
     }
+    // [rlaw] END: support dispatchMeshIndirect
 
 } // namespace nvrhi::d3d11

@@ -952,7 +952,7 @@ namespace nvrhi::validation
     }
 
     // [rlaw] BEGIN: support dispatchMeshIndirect
-    void CommandListWrapper::dispatchMeshIndirect(uint32_t offsetBytes)
+    void CommandListWrapper::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount)
     {
         if (!requireOpenState())
             return;
@@ -976,7 +976,7 @@ namespace nvrhi::validation
             return;
         }
 
-        m_CommandList->dispatchMeshIndirect(offsetBytes);
+        m_CommandList->dispatchMeshIndirect(offsetBytes, maxDrawCount);
     }
     // [rlaw] END: support dispatchMeshIndirect
 
