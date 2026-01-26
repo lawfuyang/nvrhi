@@ -242,8 +242,8 @@ namespace nvrhi::vulkan
 
                 if (m_Context.extensions.EXT_mesh_shader)
                 {
-                    flags |= vk::QueryPipelineStatisticFlagBits::eTaskShaderInvocationsEXT |
-                             vk::QueryPipelineStatisticFlagBits::eMeshShaderInvocationsEXT;
+                    // flags |= vk::QueryPipelineStatisticFlagBits::eTaskShaderInvocationsEXT |
+                    //          vk::QueryPipelineStatisticFlagBits::eMeshShaderInvocationsEXT;
                 }
 
                 auto poolInfo = vk::QueryPoolCreateInfo()
@@ -270,73 +270,83 @@ namespace nvrhi::vulkan
         return PipelineStatisticsQueryHandle::Create(query);
     }
     
-    PipelineStatistics Device::getPipelineStatistics(IPipelineStatisticsQuery* _query)
-    {
-        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
-
-        if (!query->resolved)
-        {
-            constexpr uint32_t MaxPipelineStatistics = 13; // Maximum number of statistics we can query
-            uint64_t data[MaxPipelineStatistics]{};
-
-            const uint32_t numStats = m_Context.extensions.EXT_mesh_shader ? 13 : 11;
-
-            const vk::Result res = m_Context.device.getQueryPoolResults(
-                m_PipelineStatisticsQueryPool,
-                query->queryIndex,
-                1,
-                numStats * sizeof(uint64_t),
-                data,
-                sizeof(uint64_t),
-                vk::QueryResultFlagBits::e64);
-
-            if (res == vk::Result::eSuccess)
-            {
-                query->resolved = true;
-                query->statistics.IAVertices = data[0];  // INPUT_ASSEMBLY_VERTICES
-                query->statistics.IAPrimitives = data[1]; // INPUT_ASSEMBLY_PRIMITIVES
-                query->statistics.VSInvocations = data[2]; // VERTEX_SHADER_INVOCATIONS
-                query->statistics.GSInvocations = data[3]; // GEOMETRY_SHADER_INVOCATIONS
-                query->statistics.GSPrimitives = data[4]; // GEOMETRY_SHADER_PRIMITIVES
-                query->statistics.CInvocations = data[5]; // CLIPPING_INVOCATIONS
-                query->statistics.CPrimitives = data[6]; // CLIPPING_PRIMITIVES
-                query->statistics.PSInvocations = data[7]; // FRAGMENT_SHADER_INVOCATIONS
-                query->statistics.HSInvocations = data[8]; // TESSELLATION_CONTROL_SHADER_PATCHES
-                query->statistics.DSInvocations = data[9]; // TESSELLATION_EVALUATION_SHADER_INVOCATIONS
-                query->statistics.CSInvocations = data[10]; // COMPUTE_SHADER_INVOCATIONS
-                if (m_Context.extensions.EXT_mesh_shader)
-                {
-                    query->statistics.ASInvocations = data[11]; // TASK_SHADER_INVOCATIONS_EXT
-                    query->statistics.MSInvocations = data[12]; // MESH_SHADER_INVOCATIONS_EXT
-                }
-                // MSPrimitives is not available in Vulkan
-            }
-        }
-
-        return query->statistics;
-    }
-    
     bool Device::pollPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
     {
         PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
 
         if (!query->started)
+        {
             return false;
+        }
 
-        // For Vulkan, we can check if the query is available
+        if (query->resolved)
+        {
+            return true;
+        }
+
         constexpr uint32_t MaxPipelineStatistics = 13; // Maximum number of statistics we can query
         uint64_t data[MaxPipelineStatistics]{};
+
+        //const uint32_t numStats = m_Context.extensions.EXT_mesh_shader ? 13 : 11;
+        const uint32_t numStats = 11;
 
         const vk::Result res = m_Context.device.getQueryPoolResults(
             m_PipelineStatisticsQueryPool,
             query->queryIndex,
             1,
-            sizeof(data),
+            numStats * sizeof(uint64_t),
             data,
-            0,
-            vk::QueryResultFlagBits::eWait);
+            numStats * sizeof(uint64_t),
+            vk::QueryResultFlagBits::e64);
 
-        return res == vk::Result::eSuccess;
+        assert(res == vk::Result::eSuccess || res == vk::Result::eNotReady || res == vk::Result::eErrorDeviceLost);
+
+        if (res == vk::Result::eNotReady || res == vk::Result::eErrorDeviceLost)
+        {
+            return false;
+        }
+
+        query->statistics.IAVertices = data[0];  // INPUT_ASSEMBLY_VERTICES
+        query->statistics.IAPrimitives = data[1]; // INPUT_ASSEMBLY_PRIMITIVES
+        query->statistics.VSInvocations = data[2]; // VERTEX_SHADER_INVOCATIONS
+        query->statistics.GSInvocations = data[3]; // GEOMETRY_SHADER_INVOCATIONS
+        query->statistics.GSPrimitives = data[4]; // GEOMETRY_SHADER_PRIMITIVES
+        query->statistics.CInvocations = data[5]; // CLIPPING_INVOCATIONS
+        query->statistics.CPrimitives = data[6]; // CLIPPING_PRIMITIVES
+        query->statistics.PSInvocations = data[7]; // FRAGMENT_SHADER_INVOCATIONS
+        query->statistics.HSInvocations = data[8]; // TESSELLATION_CONTROL_SHADER_PATCHES
+        query->statistics.DSInvocations = data[9]; // TESSELLATION_EVALUATION_SHADER_INVOCATIONS
+        query->statistics.CSInvocations = data[10]; // COMPUTE_SHADER_INVOCATIONS
+        if (m_Context.extensions.EXT_mesh_shader)
+        {
+            // query->statistics.ASInvocations = data[11]; // TASK_SHADER_INVOCATIONS_EXT
+            // query->statistics.MSInvocations = data[12]; // MESH_SHADER_INVOCATIONS_EXT
+        }
+        // MSPrimitives is not available in Vulkan
+
+        query->resolved = true;
+
+        return true;
+    }
+
+    PipelineStatistics Device::getPipelineStatistics(IPipelineStatisticsQuery* _query)
+    {
+        PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
+
+        if (!query->started)
+            return {};
+
+        if (!query->resolved)
+        {
+            while (!pollPipelineStatisticsQuery(query))
+                ;
+        }
+
+        query->started = false;
+
+        assert(query->resolved);
+
+        return query->statistics;
     }
 
     void Device::resetPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
@@ -350,14 +360,13 @@ namespace nvrhi::vulkan
     
     void CommandList::beginPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
     {
-        endRenderPass();
-
         PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
 
         assert(query->queryIndex >= 0);
         assert(!query->started);
         assert(m_CurrentCmdBuf);
 
+        query->started = false;
         query->resolved = false;
 
         m_CurrentCmdBuf->cmdBuf.resetQueryPool(m_Device->getPipelineStatisticsQueryPool(), query->queryIndex, 1);
@@ -366,8 +375,6 @@ namespace nvrhi::vulkan
 
     void CommandList::endPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
     {
-        endRenderPass();
-        
         PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
 
         assert(query->queryIndex >= 0);
