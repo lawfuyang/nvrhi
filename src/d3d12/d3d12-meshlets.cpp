@@ -229,6 +229,7 @@ namespace nvrhi::d3d12
 
         const bool updatePipeline = !m_CurrentMeshletStateValid || m_CurrentMeshletState.pipeline != state.pipeline;
         const bool updateIndirectParams = !m_CurrentMeshletStateValid || m_CurrentMeshletState.indirectParams != state.indirectParams;
+        const bool updateIndirectCountBuffer = !m_CurrentMeshletStateValid || m_CurrentMeshletState.indirectCountBuffer != state.indirectCountBuffer; // [rlaw]: support for indirect count buffer
 
         const bool updateViewports = !m_CurrentMeshletStateValid ||
             arraysAreDifferent(m_CurrentMeshletState.viewport.viewports, state.viewport.viewports) ||
@@ -280,7 +281,7 @@ namespace nvrhi::d3d12
         
         setGraphicsBindings(state.bindings, bindingUpdateMask,
             state.indirectParams, updateIndirectParams,
-            nullptr, false, // <-- indirect count buffer not supported for meshlets
+            state.indirectCountBuffer, updateIndirectCountBuffer, // [rlaw]: support for indirect count buffer
             pso->rootSignature);
         
         commitBarriers();
@@ -331,10 +332,20 @@ namespace nvrhi::d3d12
 
     void CommandList::dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount)
     {
-        (void)paramOffsetBytes;
-        (void)countOffsetBytes;
-        (void)maxDrawCount;
-        assert(false);
+        Buffer* paramBuffer = checked_cast<Buffer*>(m_CurrentMeshletState.indirectParams);
+        Buffer* countBuffer = checked_cast<Buffer*>(m_CurrentMeshletState.indirectCountBuffer);
+        assert(paramBuffer);
+        assert(countBuffer);
+
+        updateGraphicsVolatileBuffers();
+
+        m_ActiveCommandList->commandList->ExecuteIndirect(
+            m_Context.dispatchMeshIndirectSignature,
+            maxDrawCount,
+            paramBuffer->resource,
+            paramOffsetBytes,
+            countBuffer->resource,
+            countOffsetBytes);
     }
     // [rlaw] END
 
