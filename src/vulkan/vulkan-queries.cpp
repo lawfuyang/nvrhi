@@ -360,6 +360,8 @@ namespace nvrhi::vulkan
     
     void CommandList::beginPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
     {
+        endRenderPass();
+
         PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
 
         assert(query->queryIndex >= 0);
@@ -375,6 +377,8 @@ namespace nvrhi::vulkan
 
     void CommandList::endPipelineStatisticsQuery(IPipelineStatisticsQuery* _query)
     {
+        endRenderPass();
+        
         PipelineStatisticsQuery* query = checked_cast<PipelineStatisticsQuery*>(_query);
 
         assert(query->queryIndex >= 0);
