@@ -3374,7 +3374,7 @@ namespace nvrhi
         // - DX11: Not supported.
         // - DX12: Maps to ExecuteIndirect with a predefined signature.
         // - Vulkan: Maps to vkCmdDrawMeshTasksIndirectEXT.
-        virtual void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount = 1) = 0;
+        virtual void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount) = 0;
 
         // Draws meshlet primitives using the parameters provided in the indirect buffer specified in the prior
         // call to setMeshletState(...).
