@@ -159,6 +159,13 @@ namespace nvrhi::vulkan
             requireBufferState(state.indirectParams, ResourceStates::IndirectArgument);
         }
 
+        // [rlaw] BEGIN: added support for indirect count buffer
+        if (state.indirectCountBuffer && (m_BindingStatesDirty || state.indirectCountBuffer != m_CurrentMeshletState.indirectCountBuffer))
+        {
+            requireBufferState(state.indirectCountBuffer, ResourceStates::IndirectArgument);
+        }
+        // [rlaw] END: added support for indirect count buffer
+
         m_BindingStatesDirty = false;
     }
 

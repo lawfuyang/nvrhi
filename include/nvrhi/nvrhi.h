@@ -2782,6 +2782,7 @@ namespace nvrhi
         BindingSetVector bindings;
 
         IBuffer* indirectParams = nullptr;
+        IBuffer* indirectCountBuffer = nullptr; // [rlaw]: added support for indirect count buffer
 
         MeshletState& setPipeline(IMeshletPipeline* value) { pipeline = value; return *this; }
         MeshletState& setFramebuffer(IFramebuffer* value) { framebuffer = value; return *this; }
@@ -2789,6 +2790,7 @@ namespace nvrhi
         MeshletState& setBlendColor(const Color& value) { blendConstantColor = value; return *this; }
         MeshletState& addBindingSet(IBindingSet* value) { bindings.push_back(value); return *this; }
         MeshletState& setIndirectParams(IBuffer* value) { indirectParams = value; return *this; }
+        MeshletState& setIndirectCountBuffer(IBuffer* value) { indirectCountBuffer = value; return *this; } // [rlaw]: added support for indirect count buffer
         MeshletState& setDynamicStencilRefValue(uint8_t value) { dynamicStencilRefValue = value; return *this; }
     };
 
@@ -3402,6 +3404,17 @@ namespace nvrhi
         // - Vulkan: Maps to vkCmdDrawMeshTasksIndirectEXT.
         virtual void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount = 1) = 0;
         // [rlaw] END: dispatchMeshIndirect
+
+        // [rlaw] BEGIN: dispatchMeshIndirectCount
+        // Draws meshlet primitives using the parameters provided in the indirect buffer specified in the prior
+        // call to setMeshletState(...).
+        // The draw count is read from the indirectCountBuffer specified in setMeshletState(...)
+        //   at offset 'countOffsetBytes'.
+        // - DX11: Not supported.
+        // - DX12: Not supported.
+        // - Vulkan: Maps to vkCmdDrawMeshTasksIndirectCountEXT.
+        virtual void dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount) = 0;
+        // [rlaw] END: dispatchMeshIndirectCount
 
         // Sets the specified ray tracing state on the command list.
         // The state includes the shader table, which references the pipeline, and all bound resources.

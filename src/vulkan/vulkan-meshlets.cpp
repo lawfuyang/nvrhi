@@ -320,6 +320,13 @@ namespace nvrhi::vulkan
             m_CurrentCmdBuf->referencedResources.push_back(state.indirectParams);
         }
 
+        // [rlaw] BEGIN: added support for indirect count buffer
+        if (state.indirectCountBuffer)
+        {
+            m_CurrentCmdBuf->referencedResources.push_back(state.indirectCountBuffer);
+        }
+        // [rlaw] END: added support for indirect count buffer
+
         m_CurrentComputeState = ComputeState();
         m_CurrentGraphicsState = GraphicsState();
         m_CurrentMeshletState = state;
@@ -348,7 +355,7 @@ namespace nvrhi::vulkan
         m_CurrentCmdBuf->cmdBuf.drawMeshTasksEXT(groupsX, groupsY, groupsZ);
     }
 
-    // [rlaw] BEGIN: support dispatchMeshIndirect
+    // [rlaw] BEGIN
     void CommandList::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount)
     {
         assert(m_CurrentCmdBuf);
@@ -360,6 +367,21 @@ namespace nvrhi::vulkan
 
         m_CurrentCmdBuf->cmdBuf.drawMeshTasksIndirectEXT(indirectParams->buffer, offsetBytes, maxDrawCount, sizeof(DispatchIndirectArguments));
     }
-    // [rlaw] END: support dispatchMeshIndirect
+
+    void CommandList::dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount)
+    {
+        assert(m_CurrentCmdBuf);
+
+        updateMeshletVolatileBuffers();
+
+        Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentMeshletState.indirectParams);
+        assert(indirectParams);
+
+        Buffer* indirectCount = checked_cast<Buffer*>(m_CurrentMeshletState.indirectCountBuffer);
+        assert(indirectCount);
+
+        m_CurrentCmdBuf->cmdBuf.drawMeshTasksIndirectCountEXT(indirectParams->buffer, paramOffsetBytes, indirectCount->buffer, countOffsetBytes, maxDrawCount, sizeof(DispatchIndirectArguments));
+    }
+    // [rlaw] END
 
 } // namespace nvrhi::vulkan

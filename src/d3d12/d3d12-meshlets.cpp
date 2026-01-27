@@ -318,7 +318,7 @@ namespace nvrhi::d3d12
         m_ActiveCommandList->commandList6->DispatchMesh(groupsX, groupsY, groupsZ);
     }
 
-    // [rlaw] BEGIN: support dispatchMeshIndirect
+    // [rlaw] BEGIN
     void CommandList::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount)
     {
         Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentMeshletState.indirectParams);
@@ -328,6 +328,14 @@ namespace nvrhi::d3d12
         
         m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchMeshIndirectSignature, maxDrawCount, indirectParams->resource, offsetBytes, nullptr, 0);
     }
-    // [rlaw] END: support dispatchMeshIndirect
+
+    void CommandList::dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount)
+    {
+        (void)paramOffsetBytes;
+        (void)countOffsetBytes;
+        (void)maxDrawCount;
+        assert(false);
+    }
+    // [rlaw] END
 
 } // namespace nvrhi::d3d12
