@@ -768,7 +768,7 @@ namespace nvrhi::d3d12
         return RootSignatureHandle::Create(rootsig);
     }
 
-    RefCountPtr<RootSignature> Device::getRootSignature(const static_vector<BindingLayoutHandle, c_MaxBindingLayouts>& pipelineLayouts, bool allowInputLayout)
+    RefCountPtr<RootSignature> Device::getRootSignature(const static_vector<BindingLayoutHandle, c_MaxBindingLayouts>& pipelineLayouts, bool allowInputLayout, bool useDrawIndex) // [rlaw]: added useDrawIndex
     {
         size_t hash = 0;
 
@@ -776,6 +776,7 @@ namespace nvrhi::d3d12
             hash_combine(hash, pipelineLayout.Get());
         
         hash_combine(hash, allowInputLayout ? 1u : 0u);
+        hash_combine(hash, useDrawIndex ? 1u : 0u); // [rlaw]: added useDrawIndex
         
         // Get a cached RS and AddRef it (if it exists)
         RefCountPtr<RootSignature> rootsig = m_Resources.rootsigCache[hash];
@@ -783,7 +784,26 @@ namespace nvrhi::d3d12
         if (!rootsig)
         {
             // Does not exist - build a new one, take ownership
-            rootsig = checked_cast<RootSignature*>(buildRootSignature(pipelineLayouts, allowInputLayout, false).Get());
+
+            // [rlaw] BEGIN: add custom parameter for draw index
+            D3D12_ROOT_PARAMETER1* customParameters = nullptr;
+            uint32_t numCustomParameters = 0;
+
+            D3D12_ROOT_PARAMETER1 drawIDParam = {};
+            drawIDParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+            drawIDParam.Constants.ShaderRegister = 255;
+            drawIDParam.Constants.RegisterSpace = 0;
+            drawIDParam.Constants.Num32BitValues = 1;
+            drawIDParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+            if (useDrawIndex)
+            {
+                customParameters = &drawIDParam;
+                numCustomParameters = 1;
+            }
+            // [rlaw] END: add custom parameter for draw index
+
+            rootsig = checked_cast<RootSignature*>(buildRootSignature(pipelineLayouts, allowInputLayout, false, customParameters, numCustomParameters).Get()); // [rlaw]: added customParameters, numCustomParameters
             rootsig->hash = hash;
 
             m_Resources.rootsigCache[hash] = rootsig;

@@ -2523,7 +2523,15 @@ namespace nvrhi
         VariableRateShadingState shadingRateState;
 
         BindingLayoutVector bindingLayouts;
-        
+
+        // Whether to support the DrawIndex/DrawID in the shader.
+        // For D3D12:
+        // - This enables D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT in the command signature.
+        // - The value is bound to a reserved root parameter (root index 0, register b255, space 0).
+        // For Vulkan:
+        // - Implicitly supported via [[vk::builtin("DrawIndex")]].
+        bool useDrawIndex = false;
+
         GraphicsPipelineDesc& setPrimType(PrimitiveType value) { primType = value; return *this; }
         GraphicsPipelineDesc& setPatchControlPoints(uint32_t value) { patchControlPoints = value; return *this; }
         GraphicsPipelineDesc& setInputLayout(IInputLayout* value) { inputLayout = value; return *this; }
@@ -2578,6 +2586,14 @@ namespace nvrhi
         RenderState renderState;
 
         BindingLayoutVector bindingLayouts;
+
+        // Whether to support the DrawIndex/DrawID in the shader.
+        // For D3D12:
+        // - This enables D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT in the command signature.
+        // - The value is bound to a reserved root parameter (root index 0, register b255, space 0).
+        // For Vulkan:
+        // - Implicitly supported via [[vk::builtin("DrawIndex")]].
+        bool useDrawIndex = false;
         
         MeshletPipelineDesc& setPrimType(PrimitiveType value) { primType = value; return *this; }
         MeshletPipelineDesc& setTaskShader(IShader* value) { AS = value; return *this; }

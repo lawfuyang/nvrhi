@@ -181,6 +181,22 @@ namespace nvrhi::d3d12
             argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
             m_Context.device->CreateCommandSignature(&csDesc, nullptr, IID_PPV_ARGS(&m_Context.drawIndirectSignature));
 
+            // [rlaw] BEGIN: support drawIndirect with DrawID
+            {
+                D3D12_INDIRECT_ARGUMENT_DESC argDescsWithDrawID[2] = {};
+                argDescsWithDrawID[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT;
+                argDescsWithDrawID[0].IncrementingConstant.RootParameterIndex = 0;
+                argDescsWithDrawID[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+
+                D3D12_COMMAND_SIGNATURE_DESC csDescWithDrawID = {};
+                csDescWithDrawID.NumArgumentDescs = 2;
+                csDescWithDrawID.pArgumentDescs = argDescsWithDrawID;
+                csDescWithDrawID.ByteStride = 16;
+
+                m_Context.device->CreateCommandSignature(&csDescWithDrawID, nullptr, IID_PPV_ARGS(&m_Context.drawIndirectWithDrawIDSignature));
+            }
+            // [rlaw] END: support drawIndirect with DrawID
+
             csDesc.ByteStride = 20;
             argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
             m_Context.device->CreateCommandSignature(&csDesc, nullptr, IID_PPV_ARGS(&m_Context.drawIndexedIndirectSignature));
@@ -194,6 +210,36 @@ namespace nvrhi::d3d12
             argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
             m_Context.device->CreateCommandSignature(&csDesc, nullptr, IID_PPV_ARGS(&m_Context.dispatchMeshIndirectSignature));
             // [rlaw] END: support dispatchMeshIndirect
+
+            // [rlaw] BEGIN: support dispatchMeshIndirect with DrawIndex
+            {
+                D3D12_INDIRECT_ARGUMENT_DESC argDescsWithDrawID[2] = {};
+                argDescsWithDrawID[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT;
+                argDescsWithDrawID[0].IncrementingConstant.RootParameterIndex = 0; // Fixed reserved slot at 0
+                argDescsWithDrawID[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+
+                D3D12_COMMAND_SIGNATURE_DESC csDescWithDrawID = {};
+                csDescWithDrawID.NumArgumentDescs = 2;
+                csDescWithDrawID.pArgumentDescs = argDescsWithDrawID;
+                csDescWithDrawID.ByteStride = 12; // DispatchMesh still takes 12 bytes
+
+                m_Context.device->CreateCommandSignature(&csDescWithDrawID, nullptr, IID_PPV_ARGS(&m_Context.dispatchMeshIndirectWithDrawIDSignature));
+            }
+
+            {
+                D3D12_INDIRECT_ARGUMENT_DESC argDescsWithDrawID[2] = {};
+                argDescsWithDrawID[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT;
+                argDescsWithDrawID[0].IncrementingConstant.RootParameterIndex = 0; // Fixed reserved slot at 0
+                argDescsWithDrawID[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+
+                D3D12_COMMAND_SIGNATURE_DESC csDescWithDrawID = {};
+                csDescWithDrawID.NumArgumentDescs = 2;
+                csDescWithDrawID.pArgumentDescs = argDescsWithDrawID;
+                csDescWithDrawID.ByteStride = 20; // DrawIndexed still takes 20 bytes
+
+                m_Context.device->CreateCommandSignature(&csDescWithDrawID, nullptr, IID_PPV_ARGS(&m_Context.drawIndexedIndirectWithDrawIDSignature));
+            }
+            // [rlaw] END: support dispatchMeshIndirect with DrawIndex
         }
         
         m_FenceEvent = CreateEvent(nullptr, false, false, nullptr);

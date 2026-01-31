@@ -153,9 +153,12 @@ namespace nvrhi::d3d12
 #endif
 
         RefCountPtr<ID3D12CommandSignature> drawIndirectSignature;
+        RefCountPtr<ID3D12CommandSignature> drawIndirectWithDrawIDSignature; // [rlaw]: support drawIndirect with DrawID
         RefCountPtr<ID3D12CommandSignature> drawIndexedIndirectSignature;
+        RefCountPtr<ID3D12CommandSignature> drawIndexedIndirectWithDrawIDSignature; // [rlaw]: support drawIndexedIndirect with DrawID
         RefCountPtr<ID3D12CommandSignature> dispatchIndirectSignature;
         RefCountPtr<ID3D12CommandSignature> dispatchMeshIndirectSignature;  // [rlaw]: support dispatchMeshIndirect
+        RefCountPtr<ID3D12CommandSignature> dispatchMeshIndirectWithDrawIDSignature; // [rlaw]: support dispatchMeshIndirect with DrawID
         RefCountPtr<ID3D12QueryHeap> timerQueryHeap;
         RefCountPtr<Buffer> timerQueryResolveBuffer;
 
@@ -1402,7 +1405,7 @@ namespace nvrhi::d3d12
         D3D12_FEATURE_DATA_D3D12_OPTIONS6 m_Options6 = {};
         D3D12_FEATURE_DATA_D3D12_OPTIONS7 m_Options7 = {};
 
-        RefCountPtr<RootSignature> getRootSignature(const static_vector<BindingLayoutHandle, c_MaxBindingLayouts>& pipelineLayouts, bool allowInputLayout);
+        RefCountPtr<RootSignature> getRootSignature(const static_vector<BindingLayoutHandle, c_MaxBindingLayouts>& pipelineLayouts, bool allowInputLayout, bool useDrawIndex = false); // [rlaw]: added useDrawIndex parameter
         RefCountPtr<ID3D12PipelineState> createPipelineState(const GraphicsPipelineDesc& desc, RootSignature* pRS, const FramebufferInfo& fbinfo) const;
         RefCountPtr<ID3D12PipelineState> createPipelineState(const ComputePipelineDesc& desc, RootSignature* pRS) const;
         RefCountPtr<ID3D12PipelineState> createPipelineState(const MeshletPipelineDesc& desc, RootSignature* pRS, const FramebufferInfo& fbinfo) const;

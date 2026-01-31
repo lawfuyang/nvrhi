@@ -157,7 +157,7 @@ namespace nvrhi::d3d12
 
     MeshletPipelineHandle Device::createMeshletPipeline(const MeshletPipelineDesc& desc, FramebufferInfo const& fbinfo)
     {
-        RefCountPtr<RootSignature> pRS = getRootSignature(desc.bindingLayouts, false);
+        RefCountPtr<RootSignature> pRS = getRootSignature(desc.bindingLayouts, false, desc.useDrawIndex); // [rlaw]: added 'desc.useDrawIndex'
 
         RefCountPtr<ID3D12PipelineState> pPSO = createPipelineState(desc, pRS, fbinfo);
 
@@ -327,7 +327,13 @@ namespace nvrhi::d3d12
 
         updateGraphicsVolatileBuffers();
         
-        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchMeshIndirectSignature, maxDrawCount, indirectParams->resource, offsetBytes, nullptr, 0);
+        // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
+        ID3D12CommandSignature* signature = m_CurrentMeshletState.pipeline->getDesc().useDrawIndex 
+            ? m_Context.dispatchMeshIndirectWithDrawIDSignature.Get() 
+            : m_Context.dispatchMeshIndirectSignature.Get();
+        // [rlaw] END
+
+        m_ActiveCommandList->commandList->ExecuteIndirect(signature, maxDrawCount, indirectParams->resource, offsetBytes, nullptr, 0); // [rlaw]: use appropriate signature
     }
 
     void CommandList::dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount)
@@ -339,8 +345,14 @@ namespace nvrhi::d3d12
 
         updateGraphicsVolatileBuffers();
 
+        // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
+        ID3D12CommandSignature* signature = m_CurrentMeshletState.pipeline->getDesc().useDrawIndex 
+            ? m_Context.dispatchMeshIndirectWithDrawIDSignature.Get() 
+            : m_Context.dispatchMeshIndirectSignature.Get();
+        // [rlaw] END
+
         m_ActiveCommandList->commandList->ExecuteIndirect(
-            m_Context.dispatchMeshIndirectSignature,
+            signature, // [rlaw]: use appropriate signature
             maxDrawCount,
             paramBuffer->resource,
             paramOffsetBytes,
