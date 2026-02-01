@@ -581,9 +581,12 @@ namespace nvrhi::d3d12
         updateGraphicsVolatileBuffers();
 
         // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
-        ID3D12CommandSignature* signature = m_CurrentGraphicsState.pipeline->getDesc().useDrawIndex
-            ? m_Context.drawIndirectWithDrawIDSignature.Get()
-            : m_Context.drawIndirectSignature.Get();
+        ID3D12CommandSignature* signature;
+        if (m_CurrentGraphicsState.pipeline->getDesc().useDrawIndex) {
+            signature = checked_cast<GraphicsPipeline*>(m_CurrentGraphicsState.pipeline)->rootSignature->drawIndirectWithDrawIDSignature.Get();
+        } else {
+            signature = m_Context.drawIndirectSignature.Get();
+        }
         // [rlaw] END
 
         m_ActiveCommandList->commandList->ExecuteIndirect(signature, drawCount, indirectParams->resource, offsetBytes, nullptr, 0); // [rlaw]: use appropriate signature
@@ -597,9 +600,12 @@ namespace nvrhi::d3d12
         updateGraphicsVolatileBuffers();
 
         // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
-        ID3D12CommandSignature* signature = m_CurrentGraphicsState.pipeline->getDesc().useDrawIndex
-            ? m_Context.drawIndexedIndirectWithDrawIDSignature.Get()
-            : m_Context.drawIndexedIndirectSignature.Get();
+        ID3D12CommandSignature* signature;
+        if (m_CurrentGraphicsState.pipeline->getDesc().useDrawIndex) {
+            signature = checked_cast<GraphicsPipeline*>(m_CurrentGraphicsState.pipeline)->rootSignature->drawIndexedIndirectWithDrawIDSignature.Get();
+        } else {
+            signature = m_Context.drawIndexedIndirectSignature.Get();
+        }
         // [rlaw] END
 
         m_ActiveCommandList->commandList->ExecuteIndirect(signature, drawCount, indirectParams->resource, offsetBytes, nullptr, 0); // [rlaw]: use appropriate signature
@@ -615,9 +621,12 @@ namespace nvrhi::d3d12
         updateGraphicsVolatileBuffers();
 
         // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
-        ID3D12CommandSignature* signature = m_CurrentGraphicsState.pipeline->getDesc().useDrawIndex
-            ? m_Context.drawIndexedIndirectWithDrawIDSignature.Get()
-            : m_Context.drawIndexedIndirectSignature.Get();
+        ID3D12CommandSignature* signature;
+        if (m_CurrentGraphicsState.pipeline->getDesc().useDrawIndex) {
+            signature = checked_cast<GraphicsPipeline*>(m_CurrentGraphicsState.pipeline)->rootSignature->drawIndexedIndirectWithDrawIDSignature.Get();
+        } else {
+            signature = m_Context.drawIndexedIndirectSignature.Get();
+        }
         // [rlaw] END
 
         m_ActiveCommandList->commandList->ExecuteIndirect(

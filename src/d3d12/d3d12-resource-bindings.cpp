@@ -806,6 +806,34 @@ namespace nvrhi::d3d12
             rootsig = checked_cast<RootSignature*>(buildRootSignature(pipelineLayouts, allowInputLayout, false, customParameters, numCustomParameters).Get()); // [rlaw]: added customParameters, numCustomParameters
             rootsig->hash = hash;
 
+            // [rlaw] BEGIN: create command signatures tied to this root signature if using draw index
+            if (useDrawIndex)
+            {
+                D3D12_INDIRECT_ARGUMENT_DESC argDescs[2] = {};
+                D3D12_COMMAND_SIGNATURE_DESC csDesc = {};
+                csDesc.pArgumentDescs = argDescs;
+                csDesc.NumArgumentDescs = 2;
+
+                argDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT;
+                argDescs[0].IncrementingConstant.RootParameterIndex = 0;
+
+                // Draw
+                argDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+                csDesc.ByteStride = 16;
+                m_Context.device->CreateCommandSignature(&csDesc, rootsig->handle.Get(), IID_PPV_ARGS(&rootsig->drawIndirectWithDrawIDSignature));
+
+                // DrawIndexed
+                argDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+                csDesc.ByteStride = 20;
+                m_Context.device->CreateCommandSignature(&csDesc, rootsig->handle.Get(), IID_PPV_ARGS(&rootsig->drawIndexedIndirectWithDrawIDSignature));
+
+                // DispatchMesh
+                argDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+                csDesc.ByteStride = 12;
+                m_Context.device->CreateCommandSignature(&csDesc, rootsig->handle.Get(), IID_PPV_ARGS(&rootsig->dispatchMeshIndirectWithDrawIDSignature));
+            }
+            // [rlaw] END: create command signatures tied to this root signature if using draw index
+
             m_Resources.rootsigCache[hash] = rootsig;
         }
 

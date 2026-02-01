@@ -328,9 +328,12 @@ namespace nvrhi::d3d12
         updateGraphicsVolatileBuffers();
         
         // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
-        ID3D12CommandSignature* signature = m_CurrentMeshletState.pipeline->getDesc().useDrawIndex 
-            ? m_Context.dispatchMeshIndirectWithDrawIDSignature.Get() 
-            : m_Context.dispatchMeshIndirectSignature.Get();
+        ID3D12CommandSignature* signature;
+        if (m_CurrentMeshletState.pipeline->getDesc().useDrawIndex) {
+            signature = checked_cast<MeshletPipeline*>(m_CurrentMeshletState.pipeline)->rootSignature->dispatchMeshIndirectWithDrawIDSignature.Get();
+        } else {
+            signature = m_Context.dispatchMeshIndirectSignature.Get();
+        }
         // [rlaw] END
 
         m_ActiveCommandList->commandList->ExecuteIndirect(signature, maxDrawCount, indirectParams->resource, offsetBytes, nullptr, 0); // [rlaw]: use appropriate signature
@@ -346,9 +349,12 @@ namespace nvrhi::d3d12
         updateGraphicsVolatileBuffers();
 
         // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
-        ID3D12CommandSignature* signature = m_CurrentMeshletState.pipeline->getDesc().useDrawIndex 
-            ? m_Context.dispatchMeshIndirectWithDrawIDSignature.Get() 
-            : m_Context.dispatchMeshIndirectSignature.Get();
+        ID3D12CommandSignature* signature;
+        if (m_CurrentMeshletState.pipeline->getDesc().useDrawIndex) {
+            signature = checked_cast<MeshletPipeline*>(m_CurrentMeshletState.pipeline)->rootSignature->dispatchMeshIndirectWithDrawIDSignature.Get();
+        } else {
+            signature = m_Context.dispatchMeshIndirectSignature.Get();
+        }
         // [rlaw] END
 
         m_ActiveCommandList->commandList->ExecuteIndirect(

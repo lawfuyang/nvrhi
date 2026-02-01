@@ -153,12 +153,9 @@ namespace nvrhi::d3d12
 #endif
 
         RefCountPtr<ID3D12CommandSignature> drawIndirectSignature;
-        RefCountPtr<ID3D12CommandSignature> drawIndirectWithDrawIDSignature; // [rlaw]: support drawIndirect with DrawID
         RefCountPtr<ID3D12CommandSignature> drawIndexedIndirectSignature;
-        RefCountPtr<ID3D12CommandSignature> drawIndexedIndirectWithDrawIDSignature; // [rlaw]: support drawIndexedIndirect with DrawID
         RefCountPtr<ID3D12CommandSignature> dispatchIndirectSignature;
         RefCountPtr<ID3D12CommandSignature> dispatchMeshIndirectSignature;  // [rlaw]: support dispatchMeshIndirect
-        RefCountPtr<ID3D12CommandSignature> dispatchMeshIndirectWithDrawIDSignature; // [rlaw]: support dispatchMeshIndirect with DrawID
         RefCountPtr<ID3D12QueryHeap> timerQueryHeap;
         RefCountPtr<Buffer> timerQueryResolveBuffer;
 
@@ -604,6 +601,12 @@ namespace nvrhi::d3d12
         uint32_t pushConstantByteSize = 0;
         RootParameterIndex rootParameterPushConstants = ~0u;
         
+        // [rlaw] BEGIN
+        RefCountPtr<ID3D12CommandSignature> drawIndirectWithDrawIDSignature;
+        RefCountPtr<ID3D12CommandSignature> drawIndexedIndirectWithDrawIDSignature;
+        RefCountPtr<ID3D12CommandSignature> dispatchMeshIndirectWithDrawIDSignature;
+        // [rlaw] END
+
         RootSignature(DeviceResources& resources)
             : m_Resources(resources)
         { }
