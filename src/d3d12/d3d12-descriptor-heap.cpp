@@ -127,9 +127,6 @@ namespace nvrhi::d3d12
         bool found = false;
 
         // Find a contiguous range of 'count' indices for which m_AllocatedDescriptors[index] is false
-
-        m_SearchStart = 0; // [rlaw]: ignore the search start, always start from 0, else the 'fragmentation' will cause the heap to grow unnecessarily. Seems to hav negligible perf cost
-
         for (DescriptorIndex index = m_SearchStart; index < m_NumDescriptors; index++)
         {
             if (m_AllocatedDescriptors[index])
