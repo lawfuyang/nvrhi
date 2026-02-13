@@ -1397,6 +1397,7 @@ namespace nvrhi::d3d12
         bool m_SamplerFeedbackSupported = false;
         bool m_AftermathEnabled = false;
         bool m_HeapDirectlyIndexedEnabled = false;
+        bool m_TightAlignmentSupported = false; // [rlaw]: Tight alignment support
         bool m_CoopVecInferencingSupported = false;
         bool m_CoopVecTrainingSupported = false;
         AftermathCrashDumpHelper m_AftermathCrashDumpHelper;

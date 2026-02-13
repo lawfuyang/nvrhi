@@ -319,6 +319,14 @@ namespace nvrhi::d3d12
     TextureHandle Device::createTexture(const TextureDesc & d)
     {
         D3D12_RESOURCE_DESC rd = convertTextureDesc(d);
+
+        // [rlaw] BEGIN: Tight alignment support
+        if (m_TightAlignmentSupported && (rd.Flags & D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER) == 0)
+        {
+            rd.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
+        }
+        // [rlaw] END: Tight alignment support
+
         D3D12_HEAP_PROPERTIES heapProps = {};
         D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE;
 

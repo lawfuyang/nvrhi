@@ -99,6 +99,13 @@ namespace nvrhi::d3d12
         if (buffer->desc.canHaveUAVs)
             resourceDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
+        // [rlaw] BEGIN: Tight alignment support
+        if (m_TightAlignmentSupported && (resourceDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER) == 0)
+        {
+            resourceDesc.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
+        }
+        // [rlaw] END: Tight alignment support
+
         if (d.isVirtual)
         {
             return BufferHandle::Create(buffer);

@@ -341,8 +341,9 @@ namespace nvrhi::d3d12
         assert(m_Allocator);
 
         g_D3D12MAAllocator = m_Allocator;
+        m_TightAlignmentSupported = m_Allocator->IsTightAlignmentSupported();
 #endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
-// [rlaw] END
+        // [rlaw] END
 
     }
 
