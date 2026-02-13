@@ -157,6 +157,18 @@ namespace nvrhi::d3d12
             }
         }
 
+        // [rlaw] BEGIN: Debugging - insert barriers one by one to more easily identify problematic ones
+        const bool bDebugBarriers = false;
+        if constexpr (bDebugBarriers)
+        {
+            for (uint32_t i = 0; i < m_D3DBarriers.size(); i++)
+            {
+                m_ActiveCommandList->commandList->ResourceBarrier(1, &m_D3DBarriers[i]);
+            }
+            m_D3DBarriers.clear();
+        }
+        // [rlaw] END
+
         // Convert the buffer barriers into D3D equivalents
         for (const auto& barrier : bufferBarriers)
         {
@@ -186,6 +198,17 @@ namespace nvrhi::d3d12
                 m_D3DBarriers.push_back(d3dbarrier);
             }
         }
+
+        // [rlaw] BEGIN: Debugging - insert barriers one by one to more easily identify problematic ones
+        if constexpr (bDebugBarriers)
+        {
+            for (uint32_t i = 0; i < m_D3DBarriers.size(); i++)
+            {
+                m_ActiveCommandList->commandList->ResourceBarrier(1, &m_D3DBarriers[i]);
+            }
+            m_D3DBarriers.clear();
+        }
+        // [rlaw] END
 
         if (m_D3DBarriers.size() > 0)
             m_ActiveCommandList->commandList->ResourceBarrier(uint32_t(m_D3DBarriers.size()), m_D3DBarriers.data());
