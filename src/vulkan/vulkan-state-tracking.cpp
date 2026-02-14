@@ -197,6 +197,27 @@ namespace nvrhi::vulkan
 
     void CommandList::commitBarriersInternal()
     {
+        // [rlaw] BEGIN: Handle aliasing barriers
+        if (m_AnyAliasingBarriersPending)
+        {
+            // In Vulkan, aliased placed resources that transition from VK_IMAGE_LAYOUT_UNDEFINED
+            // get implicit aliasing activation. We issue a full pipeline memory barrier to ensure
+            // all prior writes to the shared memory region are complete before the new resource uses it.
+            auto memBarrier = vk::MemoryBarrier2()
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+                .setSrcAccessMask(vk::AccessFlagBits2::eMemoryWrite)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+                .setDstAccessMask(vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite);
+
+            auto depInfo = vk::DependencyInfo()
+                .setMemoryBarrierCount(1)
+                .setPMemoryBarriers(&memBarrier);
+
+            m_CurrentCmdBuf->cmdBuf.pipelineBarrier2(depInfo);
+            m_AnyAliasingBarriersPending = false;
+        }
+        // [rlaw] END
+
         std::vector<vk::ImageMemoryBarrier2> imageBarriers;
         std::vector<vk::BufferMemoryBarrier2> bufferBarriers;
 
@@ -279,13 +300,21 @@ namespace nvrhi::vulkan
 
     void CommandList::commitBarriers()
     {
-        if (m_StateTracker.getBufferBarriers().empty() && m_StateTracker.getTextureBarriers().empty())
+        if (m_StateTracker.getBufferBarriers().empty() && m_StateTracker.getTextureBarriers().empty() && !m_AnyAliasingBarriersPending)
             return;
 
         endRenderPass();
 
         commitBarriersInternal();
     }
+
+    // [rlaw] BEGIN: explicit aliasing barrier support
+    void CommandList::insertAliasingBarrier(IResource* _resource)
+    {
+        (void)_resource;
+        m_AnyAliasingBarriersPending = true;
+    }
+    // [rlaw] END: explicit aliasing barrier support
 
     void CommandList::beginTrackingTextureState(ITexture* _texture, TextureSubresourceSet subresources, ResourceStates stateBits)
     {

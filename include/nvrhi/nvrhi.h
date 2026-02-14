@@ -3634,6 +3634,14 @@ namespace nvrhi
         // Has no effect on DX11.
         virtual void commitBarriers() = 0;
 
+        // [rlaw]: BEGIN
+        // Inserts an aliasing barrier for a placed (virtual) resource that shares heap memory with other resources.
+        // On D3D12, it is added to the pending barriers list and emitted by commitBarriers().
+        // On Vulkan, it is added to the pending barriers list and emitted by commitBarriers().
+        // Has no effect on DX11.
+        virtual void insertAliasingBarrier(IResource* resource) = 0;
+        // [rlaw]: END
+
         // Returns the current tracked state of a texture subresource.
         // If the state is not known to the command list, returns ResourceStates::Unknown. Using the texture in this
         // state is not allowed.

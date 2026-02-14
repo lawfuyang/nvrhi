@@ -390,6 +390,8 @@ namespace nvrhi::d3d11
 
         void commitBarriers() override { }
 
+        void insertAliasingBarrier(IResource* resource) override { (void)resource; } // [rlaw] support explicit aliasing barriers
+
         ResourceStates getTextureSubresourceState(ITexture* texture, ArraySlice arraySlice, MipLevel mipLevel) override { (void)texture; (void)arraySlice; (void)mipLevel; return ResourceStates::Common; }
         ResourceStates getBufferState(IBuffer* buffer) override { (void)buffer; return ResourceStates::Common; }
 

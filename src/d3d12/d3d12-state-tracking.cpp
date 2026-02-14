@@ -100,7 +100,7 @@ namespace nvrhi::d3d12
     {
         const auto& textureBarriers = m_StateTracker.getTextureBarriers();
         const auto& bufferBarriers = m_StateTracker.getBufferBarriers();
-        const size_t barrierCount = textureBarriers.size() + bufferBarriers.size();
+        const size_t barrierCount = textureBarriers.size() + bufferBarriers.size() + m_PendingAliasingBarriers.size(); // [rlaw]: + pending aliasing barriers 
         if (barrierCount == 0)
             return;
 
@@ -108,7 +108,31 @@ namespace nvrhi::d3d12
         // For partial transitions on multi-plane textures, original barriers may translate
         // into more than 1 barrier each, but that's relatively rare.
         m_D3DBarriers.clear();
-        m_D3DBarriers.reserve(barrierCount);
+        m_D3DBarriers.reserve(textureBarriers.size() + bufferBarriers.size() + m_PendingAliasingBarriers.size()); // [rlaw]: + pending aliasing barriers
+
+        // [rlaw] BEGIN: Insert pending aliasing barriers that were requested by the app
+        for (ID3D12Resource* pResource : m_PendingAliasingBarriers)
+        {
+            D3D12_RESOURCE_BARRIER d3dbarrier{};
+            d3dbarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
+            d3dbarrier.Aliasing.pResourceBefore = nullptr;
+            d3dbarrier.Aliasing.pResourceAfter = pResource;
+            m_D3DBarriers.push_back(d3dbarrier);
+        }
+        m_PendingAliasingBarriers.clear();
+        // [rlaw] END
+
+        // [rlaw] BEGIN: Debugging - insert barriers one by one to more easily identify problematic ones
+        const bool bDebugBarriers = false;
+        if constexpr (bDebugBarriers)
+        {
+            for (uint32_t i = 0; i < m_D3DBarriers.size(); i++)
+            {
+                m_ActiveCommandList->commandList->ResourceBarrier(1, &m_D3DBarriers[i]);
+            }
+            m_D3DBarriers.clear();
+        }
+        // [rlaw] END
 
         // Convert the texture barriers into D3D equivalents
         for (const auto& barrier : textureBarriers)
@@ -158,7 +182,6 @@ namespace nvrhi::d3d12
         }
 
         // [rlaw] BEGIN: Debugging - insert barriers one by one to more easily identify problematic ones
-        const bool bDebugBarriers = false;
         if constexpr (bDebugBarriers)
         {
             for (uint32_t i = 0; i < m_D3DBarriers.size(); i++)
@@ -215,6 +238,22 @@ namespace nvrhi::d3d12
 
         m_StateTracker.clearBarriers();
     }
+
+    // [rlaw] BEGIN: App-requested aliasing barriers
+    void CommandList::insertAliasingBarrier(IResource* _resource)
+    {
+        if (!_resource) return;
+
+        ID3D12Resource* resource = nullptr;
+        if (Texture* texture = dynamic_cast<Texture*>(_resource))
+            resource = texture->resource;
+        else if (Buffer* buffer = dynamic_cast<Buffer*>(_resource))
+            resource = buffer->resource;
+
+        if (resource)
+            m_PendingAliasingBarriers.push_back(resource);
+    }
+    // [rlaw] END
 
     void CommandList::setEnableAutomaticBarriers(bool enable)
     {

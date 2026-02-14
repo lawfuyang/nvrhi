@@ -277,6 +277,8 @@ namespace nvrhi::validation
         void setPermanentBufferState(IBuffer* buffer, ResourceStates stateBits) override;
 
         void commitBarriers() override;
+
+        void insertAliasingBarrier(IResource* resource) override; // [rlaw]: support explicit aliasing barriers
         
         ResourceStates getTextureSubresourceState(ITexture* texture, ArraySlice arraySlice, MipLevel mipLevel) override;
         ResourceStates getBufferState(IBuffer* buffer) override;
