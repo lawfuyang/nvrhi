@@ -663,6 +663,7 @@ namespace nvrhi::d3d12
     public:
         uint32_t capacity = 0;
         DescriptorIndex firstDescriptor = 0;
+        BindingLayoutHandle layout;
 
         DescriptorTable(DeviceResources& resources)
             : m_Resources(resources)
@@ -671,7 +672,7 @@ namespace nvrhi::d3d12
         ~DescriptorTable() override;
 
         const BindingSetDesc* getDesc() const override { return nullptr; }
-        IBindingLayout* getLayout() const override { return nullptr; }
+        IBindingLayout* getLayout() const override { return layout; }
         uint32_t getCapacity() const override { return capacity; }
         uint32_t getFirstDescriptorIndexInHeap() const override { return firstDescriptor; }
 
