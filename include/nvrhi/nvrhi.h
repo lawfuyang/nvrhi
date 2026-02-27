@@ -3415,6 +3415,14 @@ namespace nvrhi
         // this function has no effect.
         virtual void compactBottomLevelAccelStructs() = 0;
 
+        // Copies a ray tracing acceleration structure to another memory location.
+        // This function clones the acceleration structure, creating a copy that can be used independently.
+        // - DX11: Not supported.
+        // - DX12: Maps to ID3D12GraphicsCommandList4::CopyRaytracingAccelerationStructure with 
+        //   D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE_CLONE.
+        // - Vulkan: Maps to vkCmdCopyAccelerationStructureKHR or vkCmdCopyAccelerationStructureToMemoryKHR.
+        virtual void copyRaytracingAccelerationStructure(rt::IAccelStruct* destination, rt::IAccelStruct* source) = 0;
+
         // Builds or updates a top-level ray tracing acceleration structure (TLAS).
         // A temporary memory region for the build is suballocated using the scratch buffer manager attached to the
         // command list. The size of this memory region is determined automatically inside this function.

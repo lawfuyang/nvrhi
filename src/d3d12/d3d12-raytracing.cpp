@@ -2158,6 +2158,20 @@ namespace nvrhi::d3d12
 #endif
     }
 
+    void CommandList::copyRaytracingAccelerationStructure(rt::IAccelStruct* destination, rt::IAccelStruct* source)
+    {
+        AccelStruct* dstAS = checked_cast<AccelStruct*>(destination);
+        AccelStruct* srcAS = checked_cast<AccelStruct*>(source);
+
+        if (dstAS && srcAS && dstAS->dataBuffer && srcAS->dataBuffer)
+        {
+            m_ActiveCommandList->commandList4->CopyRaytracingAccelerationStructure(
+                dstAS->dataBuffer->gpuVA,
+                srcAS->dataBuffer->gpuVA,
+                D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE_CLONE);
+        }
+    }
+
     void CommandList::buildTopLevelAccelStructInternal(AccelStruct* as, D3D12_GPU_VIRTUAL_ADDRESS instanceData, size_t numInstances, rt::AccelStructBuildFlags buildFlags)
     {
         // Remove the internal flag
