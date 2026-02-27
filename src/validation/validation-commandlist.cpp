@@ -1273,6 +1273,32 @@ namespace nvrhi::validation
         m_CommandList->compactBottomLevelAccelStructs();
     }
 
+    void CommandListWrapper::copyRaytracingAccelerationStructure(rt::IAccelStruct* destination, rt::IAccelStruct* source)
+    {
+        if (!requireOpenState())
+            return;
+
+        if (!requireType(CommandQueue::Compute, "copyRaytracingAccelerationStructure"))
+            return;
+
+        rt::IAccelStruct* underlyingDst = destination;
+        rt::IAccelStruct* underlyingSrc = source;
+
+        AccelStructWrapper* dstWrapper = dynamic_cast<AccelStructWrapper*>(destination);
+        if (dstWrapper)
+        {
+            underlyingDst = dstWrapper->getUnderlyingObject();
+        }
+
+        AccelStructWrapper* srcWrapper = dynamic_cast<AccelStructWrapper*>(source);
+        if (srcWrapper)
+        {
+            underlyingSrc = srcWrapper->getUnderlyingObject();
+        }
+
+        m_CommandList->copyRaytracingAccelerationStructure(underlyingDst, underlyingSrc);
+    }
+
     void CommandListWrapper::buildOpacityMicromap(rt::IOpacityMicromap* omm, const rt::OpacityMicromapDesc& desc) 
     {
         if (!requireOpenState())
