@@ -213,6 +213,11 @@ namespace nvrhi::d3d11
         utils::NotSupported();
     }
 
+    void CommandList::copyRaytracingAccelerationStructure(rt::IAccelStruct*, rt::IAccelStruct*)
+    {
+        utils::NotSupported();
+    }
+
     void CommandList::buildTopLevelAccelStruct(rt::IAccelStruct*, const rt::InstanceDesc*, size_t, rt::AccelStructBuildFlags)
     {
         utils::NotSupported();
