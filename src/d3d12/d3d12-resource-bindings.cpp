@@ -1088,14 +1088,17 @@ namespace nvrhi::d3d12
             m_CurrentComputeVolatileCBs = newVolatileCBs;
         }
 
-        if (indirectParams && updateIndirectParams)
+        // [rlaw] BEGIN: keep indirect params in INDIRECT_ARGUMENT state whenever they are bound
+        if (indirectParams)
         {
             if (m_EnableAutomaticBarriers)
             {
                 requireBufferState(indirectParams, ResourceStates::IndirectArgument);
             }
-            m_Instance->referencedResources.push_back(indirectParams);
+            if (updateIndirectParams)
+                m_Instance->referencedResources.push_back(indirectParams);
         }
+        // [rlaw] END: keep indirect params in INDIRECT_ARGUMENT state whenever they are bound
 
         uint32_t bindingMask = (1 << uint32_t(bindings.size())) - 1;
         if ((bindingUpdateMask & bindingMask) == bindingMask)
@@ -1215,23 +1218,29 @@ namespace nvrhi::d3d12
             m_CurrentGraphicsVolatileCBs = newVolatileCBs;
         }
 
-        if (indirectParams && updateIndirectParams)
+        // [rlaw] BEGIN: the param buffer must be in INDIRECT_ARGUMENT for ExecuteIndirect
+        if (indirectParams)
         {
             if (m_EnableAutomaticBarriers)
             {
                 requireBufferState(indirectParams, ResourceStates::IndirectArgument);
             }
-            m_Instance->referencedResources.push_back(indirectParams);
+            if (updateIndirectParams)
+                m_Instance->referencedResources.push_back(indirectParams);
         }
+        // [rlaw] END: the param buffer must be in INDIRECT_ARGUMENT for ExecuteIndirect
 
-        if (indirectCountBuffer && updateIndirectCountBuffer)
+        // [rlaw] BEGIN: the count buffer must also be in INDIRECT_ARGUMENT for ExecuteIndirect count
+        if (indirectCountBuffer)
         {
             if (m_EnableAutomaticBarriers)
             {
                 requireBufferState(indirectCountBuffer, ResourceStates::IndirectArgument);
             }
-            m_Instance->referencedResources.push_back(indirectCountBuffer);
+            if (updateIndirectCountBuffer)
+                m_Instance->referencedResources.push_back(indirectCountBuffer);
         }
+        // [rlaw] END: the count buffer must also be in INDIRECT_ARGUMENT for ExecuteIndirect count
 
         uint32_t bindingMask = (1 << uint32_t(bindings.size())) - 1;
         if ((bindingUpdateMask & bindingMask) == bindingMask)
