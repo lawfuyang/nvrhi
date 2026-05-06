@@ -2937,7 +2937,8 @@ namespace nvrhi
         };
 
         // Describes a combination of input and output data types for matrix multiplication with Cooperative Vectors.
-        // - DX12: Maps from D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL.
+        // - DX12: Preview 717 uses D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL; preview 720+ uses
+        //         D3D12_FEATURE_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT (THREAD_VECTOR_MATRIX_MULTIPLY).
         // - Vulkan: Maps from VkCooperativeVectorPropertiesNV.
         struct MatMulFormatCombo
         {
@@ -2954,13 +2955,12 @@ namespace nvrhi
             // Format combinations supported by the device for matrix multiplication with Cooperative Vectors.
             std::vector<MatMulFormatCombo> matMulFormats;
 
-            // - DX12: True if FLOAT16 is supported as accumulation format for both outer product accumulation
-            //         and vector accumulation.
+            // - DX12: Preview 717 uses outer-product / vector accumulation property lists from D3D12_FEATURE_COOPERATIVE_VECTOR;
+            //         preview 720+ derives training support from THREAD_OUTER_PRODUCT and ATOMIC_ACCUMULATE_STORE queries.
             // - Vulkan: True if cooperativeVectorTrainingFloat16Accumulation is supported.
             bool trainingFloat16 = false;
 
-            // - DX12: True if FLOAT32 is supported as accumulation format for both outer product accumulation
-            //         and vector accumulation.
+            // - DX12: Same training gating semantics as trainingFloat16, evaluated for FLOAT32 accumulation paths.
             // - Vulkan: True if cooperativeVectorTrainingFloat32Accumulation is supported.
             bool trainingFloat32 = false;
         };

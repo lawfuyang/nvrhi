@@ -143,16 +143,48 @@ namespace nvrhi::d3d12
             m_SamplerFeedbackSupported = m_Options7.SamplerFeedbackTier >= D3D12_SAMPLER_FEEDBACK_TIER_0_9;
         }
 
-#if NVRHI_D3D12_WITH_COOPVEC
+#if NVRHI_D3D12_WITH_PREVIEW_MATRIX_CONVERSION
         if (SUCCEEDED(m_Context.device->QueryInterface(&m_Context.devicePreview)))
         {
+#if NVRHI_D3D12_WITH_LINALG
+            D3D12_FEATURE_DATA_LINEAR_ALGEBRA_SUPPORT linearAlgebraTier{};
+            if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_SUPPORT,
+                    &linearAlgebraTier, UINT(sizeof linearAlgebraTier))) &&
+                linearAlgebraTier.LinearAlgebraTier >= D3D12_LINEAR_ALGEBRA_TIER_1_0)
+            {
+                m_CoopVecInferencingSupported = true;
+
+                D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT outerProductOp{};
+                outerProductOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT;
+                BOOL outerProductOk = FALSE;
+                if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT,
+                        &outerProductOp, UINT(sizeof outerProductOp))))
+                {
+                    outerProductOk = outerProductOp.ThreadOuterProductSupport.Supported;
+                }
+
+                auto queryAtomicAccumulate = [&](D3D12_LINEAR_ALGEBRA_DATATYPE componentType) -> bool {
+                    D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT accOp{};
+                    accOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE;
+                    accOp.AccumulateStore.ComponentType = componentType;
+                    if (FAILED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT,
+                            &accOp, UINT(sizeof accOp))))
+                        return false;
+                    return !!accOp.AccumulateStore.RWByteAddressBufferSupported;
+                };
+
+                m_CoopVecTrainingSupported = outerProductOk && queryAtomicAccumulate(D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) &&
+                    queryAtomicAccumulate(D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32);
+            }
+#else
             D3D12_FEATURE_DATA_D3D12_OPTIONS_EXPERIMENTAL experimentalOptions{};
             if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_EXPERIMENTAL,
-                &experimentalOptions, UINT(sizeof experimentalOptions))))
+                    &experimentalOptions, UINT(sizeof experimentalOptions))))
             {
                 m_CoopVecInferencingSupported = experimentalOptions.CooperativeVectorTier >= D3D12_COOPERATIVE_VECTOR_TIER_1_0;
                 m_CoopVecTrainingSupported = experimentalOptions.CooperativeVectorTier >= D3D12_COOPERATIVE_VECTOR_TIER_1_1;
             }
+#endif
         }
 #endif
 
@@ -731,14 +763,66 @@ namespace nvrhi::d3d12
     coopvec::DeviceFeatures Device::queryCoopVecFeatures()
     {
         coopvec::DeviceFeatures result;
-#if NVRHI_D3D12_WITH_COOPVEC
-        // Get the format count
+#if NVRHI_D3D12_WITH_PREVIEW_MATRIX_CONVERSION
+#if NVRHI_D3D12_WITH_LINALG
+        D3D12_FEATURE_DATA_LINEAR_ALGEBRA_SUPPORT linearAlgebraTier{};
+        if (m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_SUPPORT,
+                &linearAlgebraTier, UINT(sizeof linearAlgebraTier)) != S_OK ||
+            linearAlgebraTier.LinearAlgebraTier < D3D12_LINEAR_ALGEBRA_TIER_1_0)
+            return result;
+
+        D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT tvmOp{};
+        tvmOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY;
+        if (m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT,
+                &tvmOp, UINT(sizeof tvmOp)) == S_OK &&
+            (tvmOp.ThreadVectorMatrixMultiply.SupportFlags & D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) != 0)
+        {
+            const D3D12_LINEAR_ALGEBRA_THREAD_VECTOR_MATRIX_MULTIPLY_SUPPORT& tvm = tvmOp.ThreadVectorMatrixMultiply;
+            coopvec::MatMulFormatCombo& combo = result.matMulFormats.emplace_back();
+            combo.inputType = convertCoopVecDataType(tvm.VectorInputType);
+            combo.inputInterpretation = combo.inputType;
+            combo.matrixInterpretation = convertCoopVecDataType(tvm.MatrixInputType);
+            combo.biasInterpretation = convertCoopVecDataType(tvm.BiasInputType);
+            combo.outputType = convertCoopVecDataType(tvm.VectorResultType);
+            combo.transposeSupported =
+                (tvm.SupportFlags & D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE) != 0;
+        }
+
+        bool outerProductSupported = false;
+
+        D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT outerOp{};
+        outerOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT;
+        if (m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT,
+                &outerOp, UINT(sizeof outerOp)) == S_OK &&
+            outerOp.ThreadOuterProductSupport.Supported)
+        {
+            outerProductSupported = true;
+        }
+
+        auto queryAtomicAccumulateType = [&](D3D12_LINEAR_ALGEBRA_DATATYPE componentType) -> bool {
+            D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT accOp{};
+            accOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE;
+            accOp.AccumulateStore.ComponentType = componentType;
+            if (m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT,
+                    &accOp, UINT(sizeof accOp)) != S_OK)
+                return false;
+            return !!accOp.AccumulateStore.RWByteAddressBufferSupported;
+        };
+
+        bool vectorAccumulateFloat16Supported =
+            queryAtomicAccumulateType(D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16);
+        bool vectorAccumulateFloat32Supported =
+            queryAtomicAccumulateType(D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32);
+
+        result.trainingFloat16 = outerProductSupported && vectorAccumulateFloat16Supported;
+        result.trainingFloat32 = outerProductSupported && vectorAccumulateFloat32Supported;
+#else
+        // Preview 717: D3D12_FEATURE_COOPERATIVE_VECTOR and typed property arrays.
         D3D12_FEATURE_DATA_COOPERATIVE_VECTOR coopVecData{};
         if (m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR,
             &coopVecData, UINT(sizeof coopVecData)) != S_OK)
             return result;
-        
-        // Get the supported format list
+
         std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL> matMulProperties(coopVecData.MatrixVectorMulAddPropCount);
         std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> outerProductAccumulateProperties(coopVecData.OuterProductAccumulatePropCount);
         std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> vectorAccumulateProperties(coopVecData.VectorAccumulatePropCount);
@@ -792,12 +876,13 @@ namespace nvrhi::d3d12
         result.trainingFloat16 = outerProductFloat16Supported && vectorAccumulateFloat16Supported;
         result.trainingFloat32 = outerProductFloat32Supported && vectorAccumulateFloat32Supported;
 #endif
+#endif
         return result;
     }
 
     size_t Device::getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns)
     {
-#if NVRHI_D3D12_WITH_COOPVEC
+#if NVRHI_D3D12_WITH_PREVIEW_MATRIX_CONVERSION
         D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO destInfo = {};
         destInfo.DestLayout = convertCoopVecMatrixLayout(layout);
         destInfo.NumRows = rows;
