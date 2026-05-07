@@ -148,33 +148,11 @@ namespace nvrhi::d3d12
         {
 #if NVRHI_D3D12_WITH_LINALG
             D3D12_FEATURE_DATA_LINEAR_ALGEBRA_SUPPORT linearAlgebraTier{};
-            if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_SUPPORT,
-                    &linearAlgebraTier, UINT(sizeof linearAlgebraTier))) &&
-                linearAlgebraTier.LinearAlgebraTier >= D3D12_LINEAR_ALGEBRA_TIER_1_0)
+            if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_SUPPORT, 
+                &linearAlgebraTier, UINT(sizeof linearAlgebraTier))))
             {
-                m_CoopVecInferencingSupported = true;
-
-                D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT outerProductOp{};
-                outerProductOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT;
-                BOOL outerProductOk = FALSE;
-                if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT,
-                        &outerProductOp, UINT(sizeof outerProductOp))))
-                {
-                    outerProductOk = outerProductOp.ThreadOuterProductSupport.Supported;
-                }
-
-                auto queryAtomicAccumulate = [&](D3D12_LINEAR_ALGEBRA_DATATYPE componentType) -> bool {
-                    D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT accOp{};
-                    accOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE;
-                    accOp.AccumulateStore.ComponentType = componentType;
-                    if (FAILED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT,
-                            &accOp, UINT(sizeof accOp))))
-                        return false;
-                    return !!accOp.AccumulateStore.RWByteAddressBufferSupported;
-                };
-
-                m_CoopVecTrainingSupported = outerProductOk && queryAtomicAccumulate(D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16) &&
-                    queryAtomicAccumulate(D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32);
+                m_CoopVecInferencingSupported = linearAlgebraTier.LinearAlgebraTier >= D3D12_LINEAR_ALGEBRA_TIER_1_0;
+                m_CoopVecTrainingSupported = false; // D3D12_PREVIEW_SDK_VERSION 720 does not support higher than tier 1
             }
 #else
             D3D12_FEATURE_DATA_D3D12_OPTIONS_EXPERIMENTAL experimentalOptions{};
@@ -765,11 +743,10 @@ namespace nvrhi::d3d12
         coopvec::DeviceFeatures result;
 #if NVRHI_D3D12_WITH_PREVIEW_MATRIX_CONVERSION
 #if NVRHI_D3D12_WITH_LINALG
-        D3D12_FEATURE_DATA_LINEAR_ALGEBRA_SUPPORT linearAlgebraTier{};
-        if (m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_SUPPORT,
-                &linearAlgebraTier, UINT(sizeof linearAlgebraTier)) != S_OK ||
-            linearAlgebraTier.LinearAlgebraTier < D3D12_LINEAR_ALGEBRA_TIER_1_0)
+        if (!m_CoopVecInferencingSupported)
+        {
             return result;
+        }
 
         D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT tvmOp{};
         tvmOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY;
