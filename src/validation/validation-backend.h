@@ -391,6 +391,7 @@ namespace nvrhi::validation
         bool queryFeatureSupport(Feature feature, void* pInfo = nullptr, size_t infoSize = 0) override;
         FormatSupport queryFormatSupport(Format format) override;
         coopvec::DeviceFeatures queryCoopVecFeatures() override;
+        coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) override;
         size_t getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns) override;
         Object getNativeQueue(ObjectType objectType, CommandQueue queue) override;
         IMessageCallback* getMessageCallback() override;

@@ -143,7 +143,7 @@ namespace nvrhi::d3d12
             m_SamplerFeedbackSupported = m_Options7.SamplerFeedbackTier >= D3D12_SAMPLER_FEEDBACK_TIER_0_9;
         }
 
-#if NVRHI_D3D12_WITH_PREVIEW_MATRIX_CONVERSION
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
         if (SUCCEEDED(m_Context.device->QueryInterface(&m_Context.devicePreview)))
         {
 #if NVRHI_D3D12_WITH_LINALG
@@ -157,7 +157,7 @@ namespace nvrhi::d3d12
 #else
             D3D12_FEATURE_DATA_D3D12_OPTIONS_EXPERIMENTAL experimentalOptions{};
             if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_EXPERIMENTAL,
-                    &experimentalOptions, UINT(sizeof experimentalOptions))))
+                    &experimentalOptions, sizeof(experimentalOptions))))
             {
                 m_CoopVecInferencingSupported = experimentalOptions.CooperativeVectorTier >= D3D12_COOPERATIVE_VECTOR_TIER_1_0;
                 m_CoopVecTrainingSupported = experimentalOptions.CooperativeVectorTier >= D3D12_COOPERATIVE_VECTOR_TIER_1_1;
@@ -741,34 +741,11 @@ namespace nvrhi::d3d12
     coopvec::DeviceFeatures Device::queryCoopVecFeatures()
     {
         coopvec::DeviceFeatures result;
-#if NVRHI_D3D12_WITH_PREVIEW_MATRIX_CONVERSION
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
 #if NVRHI_D3D12_WITH_LINALG
         if (!m_CoopVecInferencingSupported)
         {
             return result;
-        }
-
-        // In the 720 SDK we have to query each layout 
-        D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT tvmOp{};
-        tvmOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY;
-        tvmOp.ThreadVectorMatrixMultiply.VectorInputType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
-        tvmOp.ThreadVectorMatrixMultiply.VectorResultType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
-        tvmOp.ThreadVectorMatrixMultiply.MatrixInputType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
-        tvmOp.ThreadVectorMatrixMultiply.BiasInputType = D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
-
-        if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT, &tvmOp, (sizeof tvmOp))))
-        {
-            if ((tvmOp.ThreadVectorMatrixMultiply.SupportFlags & D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) != 0)
-            {
-                const D3D12_LINEAR_ALGEBRA_THREAD_VECTOR_MATRIX_MULTIPLY_SUPPORT& tvm = tvmOp.ThreadVectorMatrixMultiply;
-                coopvec::MatMulFormatCombo& combo = result.matMulFormats.emplace_back();
-                combo.inputType = convertCoopVecDataType(tvm.VectorInputType);
-                combo.inputInterpretation = combo.inputType;
-                combo.matrixInterpretation = convertCoopVecDataType(tvm.MatrixInputType);
-                combo.biasInterpretation = convertCoopVecDataType(tvm.BiasInputType);
-                combo.outputType = convertCoopVecDataType(tvm.VectorResultType);
-                combo.transposeSupported = (tvm.SupportFlags & D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE) != 0;
-            }
         }
 
         auto queryThreadOuterProductSupport = [&](D3D12_LINEAR_ALGEBRA_DATATYPE componentType) -> bool {
@@ -776,7 +753,7 @@ namespace nvrhi::d3d12
             outerOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT;
             outerOp.ThreadOuterProductSupport.InputComponentType = componentType;
             outerOp.ThreadOuterProductSupport.ResultComponentType = componentType;
-            if (FAILED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT, &outerOp, UINT(sizeof outerOp))))
+            if (FAILED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT, &outerOp, sizeof(outerOp))))
             {
                 return false;
             }
@@ -805,7 +782,7 @@ namespace nvrhi::d3d12
         // Preview 717: D3D12_FEATURE_COOPERATIVE_VECTOR and typed property arrays.
         D3D12_FEATURE_DATA_COOPERATIVE_VECTOR coopVecData{};
         if (m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR,
-            &coopVecData, UINT(sizeof coopVecData)) != S_OK)
+            &coopVecData, sizeof(coopVecData)) != S_OK)
             return result;
 
         std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL> matMulProperties(coopVecData.MatrixVectorMulAddPropCount);
@@ -815,7 +792,7 @@ namespace nvrhi::d3d12
         coopVecData.pOuterProductAccumulateProperties = outerProductAccumulateProperties.data();
         coopVecData.pVectorAccumulateProperties = vectorAccumulateProperties.data();
         if (m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR,
-            &coopVecData, UINT(sizeof coopVecData)) != S_OK)
+            &coopVecData, sizeof(coopVecData)) != S_OK)
             return result;
 
         result.matMulFormats.reserve(matMulProperties.size());
@@ -865,9 +842,90 @@ namespace nvrhi::d3d12
         return result;
     }
 
+    coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
+    {
+        coopvec::MatMulFormatSupport result{};
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
+#if NVRHI_D3D12_WITH_LINALG
+        if (!m_CoopVecInferencingSupported)
+            return result;
+
+        const D3D12_LINEAR_ALGEBRA_DATATYPE vectorInput = convertCoopVecDataType(combination.inputInterpretation);
+        const D3D12_LINEAR_ALGEBRA_DATATYPE matrixInput = convertCoopVecDataType(combination.matrixInterpretation);
+        const D3D12_LINEAR_ALGEBRA_DATATYPE biasInput = convertCoopVecDataType(combination.biasInterpretation);
+        const D3D12_LINEAR_ALGEBRA_DATATYPE vectorResult = convertCoopVecDataType(combination.outputType);
+
+        D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT op{};
+        op.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY;
+        op.ThreadVectorMatrixMultiply.VectorInputType = vectorInput;
+        op.ThreadVectorMatrixMultiply.MatrixInputType = matrixInput;
+        op.ThreadVectorMatrixMultiply.BiasInputType = biasInput;
+        op.ThreadVectorMatrixMultiply.VectorResultType = vectorResult;
+        if (FAILED(m_Context.device.Get()->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT, 
+            &op, sizeof(op))))
+        {
+            return result;
+        }
+
+        const uint32_t flags = op.ThreadVectorMatrixMultiply.SupportFlags;
+        if ((flags & D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) == 0)
+        {
+            return result;
+        }
+
+        result.supported = true;
+        result.transposeSupported = (flags & D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE) != 0;
+        result.emulatedInputs = (flags & D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS) != 0;
+        return result;
+#else
+        // Preview 717: scan D3D12_FEATURE_COOPERATIVE_VECTOR matrix-vector mul property list.
+        if (!m_CoopVecInferencingSupported)
+            return result;
+
+        const auto inputType = convertToD3D12CoopVecDataType(combination.inputType);
+        const auto inputInterpretation = convertToD3D12CoopVecDataType(combination.inputInterpretation);
+        const auto matrixInterpretation = convertToD3D12CoopVecDataType(combination.matrixInterpretation);
+        const auto biasInterpretation = convertToD3D12CoopVecDataType(combination.biasInterpretation);
+        const auto outputType = convertToD3D12CoopVecDataType(combination.outputType);
+
+        D3D12_FEATURE_DATA_COOPERATIVE_VECTOR coopVecData{};
+        if (FAILED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR, &coopVecData, sizeof(coopVecData))))
+            return result;
+
+        std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL> matMulProperties(coopVecData.MatrixVectorMulAddPropCount);
+        std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> outerProductAccumulateProperties(
+            coopVecData.OuterProductAccumulatePropCount);
+        std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> vectorAccumulateProperties(
+            coopVecData.VectorAccumulatePropCount);
+        coopVecData.pMatrixVectorMulAddProperties = matMulProperties.data();
+        coopVecData.pOuterProductAccumulateProperties = outerProductAccumulateProperties.data();
+        coopVecData.pVectorAccumulateProperties = vectorAccumulateProperties.data();
+
+        if (FAILED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR, &coopVecData, sizeof(coopVecData))))
+            return result;
+
+        for (const auto& prop : matMulProperties)
+        {
+            if (prop.InputType == inputType && 
+                prop.InputInterpretation == inputInterpretation &&
+                prop.MatrixInterpretation == matrixInterpretation &&
+                prop.BiasInterpretation == biasInterpretation &&
+                prop.OutputType == outputType)
+            {
+                result.supported = true;
+                result.transposeSupported = prop.TransposeSupported != FALSE;
+                return result;
+            }
+#endif
+#else
+        (void)combination;
+        return result;
+#endif
+    }
+
     size_t Device::getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns)
     {
-#if NVRHI_D3D12_WITH_PREVIEW_MATRIX_CONVERSION
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
         D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO destInfo = {};
         destInfo.DestLayout = convertCoopVecMatrixLayout(layout);
         destInfo.NumRows = rows;

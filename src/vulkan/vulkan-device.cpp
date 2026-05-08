@@ -513,6 +513,45 @@ namespace nvrhi::vulkan
         return result;
     }
 
+    coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
+    {
+        coopvec::MatMulFormatSupport result{};
+        if (!m_Context.extensions.NV_cooperative_vector)
+            return result;
+
+        const vk::ComponentTypeKHR inputType = convertToVkCoopVecDataType(combination.inputType);
+        const vk::ComponentTypeKHR inputInterpretation = convertToVkCoopVecDataType(combination.inputInterpretation);
+        const vk::ComponentTypeKHR matrixInterpretation = convertToVkCoopVecDataType(combination.matrixInterpretation);
+        const vk::ComponentTypeKHR biasInterpretation = convertToVkCoopVecDataType(combination.biasInterpretation);
+        const vk::ComponentTypeKHR resultType = convertToVkCoopVecDataType(combination.outputType);
+
+        uint32_t propertyCount = 0;
+        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(&propertyCount, nullptr) != vk::Result::eSuccess)
+            return result;
+        if (propertyCount == 0)
+            return result;
+
+        std::vector<vk::CooperativeVectorPropertiesNV> properties(propertyCount);
+        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(&propertyCount, properties.data()) != vk::Result::eSuccess)
+            return result;
+
+        for (const vk::CooperativeVectorPropertiesNV& prop : properties)
+        {
+            if (prop.inputType == inputType &&
+                prop.inputInterpretation == inputInterpretation &&
+                prop.matrixInterpretation == matrixInterpretation &&
+                prop.biasInterpretation == biasInterpretation &&
+                prop.resultType == resultType)
+            {
+                result.supported = true;
+                result.transposeSupported = prop.transpose != VK_FALSE;
+                return result;
+            }
+        }
+
+        return result;
+    }
+
     size_t Device::getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns)
     {
         if (!m_Context.extensions.NV_cooperative_vector)

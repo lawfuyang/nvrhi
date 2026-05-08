@@ -64,7 +64,7 @@ namespace nvrhi
 {
     // Version of the public API provided by NVRHI.
     // Increment this when any changes to the API are made.
-    static constexpr uint32_t c_HeaderVersion = 23;
+    static constexpr uint32_t c_HeaderVersion = 24;
 
     // Verifies that the version of the implementation matches the version of the header.
     // Returns true if they match. Use this when initializing apps using NVRHI as a shared library.
@@ -2950,6 +2950,14 @@ namespace nvrhi
             bool transposeSupported;
         };
 
+        // Result of queryCoopVecMatMulFormatSupport.
+        struct MatMulFormatSupport
+        {
+            bool supported = false;
+            bool transposeSupported = false;
+            bool emulatedInputs = false;
+        };
+
         struct DeviceFeatures
         {
             // Format combinations supported by the device for matrix multiplication with Cooperative Vectors.
@@ -3695,6 +3703,10 @@ namespace nvrhi
 
         // Returns a list of supported CoopVec matrix multiplication formats and accumulation capabilities.
         virtual coopvec::DeviceFeatures queryCoopVecFeatures() = 0;
+
+        // Queries support for thread vector matrix multiply with the given type combination.
+        // combination.transposeSupported is ignored; transpose capability is reported in MatMulFormatSupport.
+        virtual coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) = 0;
 
         // Calculates and returns the on-device size for a CoopVec matrix of the given dimensions, type and layout.
         virtual size_t getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns) = 0;
