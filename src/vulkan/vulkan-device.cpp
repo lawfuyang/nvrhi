@@ -478,6 +478,7 @@ namespace nvrhi::vulkan
         return result;
     }
 
+    // Deprecated aggregate query; prefer queryCoopVecMatMulFormatSupport and queryCoopVecTrainingFormatSupport (IDevice).
     coopvec::DeviceFeatures Device::queryCoopVecFeatures()
     {
         coopvec::DeviceFeatures result;
@@ -507,8 +508,13 @@ namespace nvrhi::vulkan
             combo.transposeSupported = !!prop.transpose;
         }
 
-        result.trainingFloat16 = m_Context.coopVecProperties.cooperativeVectorTrainingFloat16Accumulation;
-        result.trainingFloat32 = m_Context.coopVecProperties.cooperativeVectorTrainingFloat32Accumulation;
+        coopvec::TrainingFormatQuery trainingQuery{};
+        trainingQuery.accumulateComponentType = coopvec::DataType::Float16;
+        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(trainingQuery).supported;
+
+        trainingQuery.accumulateComponentType = coopvec::DataType::Float32;
+        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(trainingQuery).supported;
+
 
         return result;
     }
@@ -519,11 +525,11 @@ namespace nvrhi::vulkan
         if (!m_Context.extensions.NV_cooperative_vector)
             return result;
 
-        const vk::ComponentTypeKHR inputType = convertToVkCoopVecDataType(combination.inputType);
-        const vk::ComponentTypeKHR inputInterpretation = convertToVkCoopVecDataType(combination.inputInterpretation);
-        const vk::ComponentTypeKHR matrixInterpretation = convertToVkCoopVecDataType(combination.matrixInterpretation);
-        const vk::ComponentTypeKHR biasInterpretation = convertToVkCoopVecDataType(combination.biasInterpretation);
-        const vk::ComponentTypeKHR resultType = convertToVkCoopVecDataType(combination.outputType);
+        const vk::ComponentTypeKHR inputType = convertCoopVecDataType(combination.inputType);
+        const vk::ComponentTypeKHR inputInterpretation = convertCoopVecDataType(combination.inputInterpretation);
+        const vk::ComponentTypeKHR matrixInterpretation = convertCoopVecDataType(combination.matrixInterpretation);
+        const vk::ComponentTypeKHR biasInterpretation = convertCoopVecDataType(combination.biasInterpretation);
+        const vk::ComponentTypeKHR resultType = convertCoopVecDataType(combination.outputType);
 
         uint32_t propertyCount = 0;
         if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(&propertyCount, nullptr) != vk::Result::eSuccess)
@@ -548,6 +554,49 @@ namespace nvrhi::vulkan
                 return result;
             }
         }
+        return result;
+    }
+
+    coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(const coopvec::TrainingFormatQuery& query)
+    {
+        coopvec::TrainingFormatSupport result{};
+
+        if (!m_Context.extensions.NV_cooperative_vector)
+            return result;
+
+        const auto& props = m_Context.coopVecProperties;
+
+        vk::Bool32 vkTrainingAccumulationSupported = vk::False;
+        if (query.accumulateComponentType == coopvec::DataType::Float16)
+            vkTrainingAccumulationSupported = props.cooperativeVectorTrainingFloat16Accumulation;
+        else if (query.accumulateComponentType == coopvec::DataType::Float32)
+            vkTrainingAccumulationSupported = props.cooperativeVectorTrainingFloat32Accumulation;
+        else
+            return result;
+
+        const bool trainingAccumulationSupported = (vkTrainingAccumulationSupported != vk::False);
+
+        if (query.requireOuterProduct)
+            result.outerProductSupported = trainingAccumulationSupported;
+
+        const bool needAccum =
+            query.requireVectorAccumulateUav || query.requireVectorAccumulateGroupShared;
+        if (needAccum)
+        {
+            // Vulkan exposes one training accumulation flag per precision, not separate outer product vs
+            // RWByteAddressBuffer vs group-shared paths. Mirror the same value for all three when Float16/32.
+            result.vectorAccumulateRwByteAddressBufferSupported = trainingAccumulationSupported;
+            result.vectorAccumulateGroupSharedSupported = trainingAccumulationSupported;
+        }
+
+        bool supported = true;
+        if (query.requireOuterProduct)
+            supported = supported && result.outerProductSupported;
+        if (query.requireVectorAccumulateUav)
+            supported = supported && result.vectorAccumulateRwByteAddressBufferSupported;
+        if (query.requireVectorAccumulateGroupShared)
+            supported = supported && result.vectorAccumulateGroupSharedSupported;
+        result.supported = supported;
 
         return result;
     }

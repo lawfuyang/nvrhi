@@ -2958,6 +2958,29 @@ namespace nvrhi
             bool emulatedInputs = false;
         };
 
+        // Describes which cooperative-vector training operations must succeed for queryCoopVecTrainingFormatSupport.
+        // accumulateComponentType is used for THREAD_OUTER_PRODUCT input/result and for ATOMIC_ACCUMULATE_STORE (Linalg),
+        // and for preview list matching (preview path).
+        struct TrainingFormatQuery
+        {
+            DataType accumulateComponentType = DataType::Float16;
+            bool requireOuterProduct = true;
+            bool requireVectorAccumulateUav = true;
+            bool requireVectorAccumulateGroupShared = true;
+        };
+
+        // Granular cooperative-vector training support; see queryCoopVecTrainingFormatSupport.
+        // On D3D12 preview coop-vector APIs, UAV and group-shared accumulation cannot be queried separately —
+        // both flags are true iff vector accumulate supports the accumulation component type for that backend.
+        // On Vulkan only one training accumulation flag exists per Float16/Float32; outer and accumulate bits mirror that bool.
+        struct TrainingFormatSupport
+        {
+            bool supported = false;
+            bool outerProductSupported = false;
+            bool vectorAccumulateRwByteAddressBufferSupported = false;
+            bool vectorAccumulateGroupSharedSupported = false;
+        };
+
         struct DeviceFeatures
         {
             // Format combinations supported by the device for matrix multiplication with Cooperative Vectors.
@@ -3701,12 +3724,18 @@ namespace nvrhi
 
         virtual FormatSupport queryFormatSupport(Format format) = 0;
 
-        // Returns a list of supported CoopVec matrix multiplication formats and accumulation capabilities.
+        // Returns supported CoopVec matrix-multiply combinations plus Float16/Float32 training summaries.
+        // Deprecated for new code: use queryCoopVecMatMulFormatSupport(...) and queryCoopVecTrainingFormatSupport(...)
+        // instead; this aggregate may be removed in a future version.
         virtual coopvec::DeviceFeatures queryCoopVecFeatures() = 0;
 
         // Queries support for thread vector matrix multiply with the given type combination.
         // combination.transposeSupported is ignored; transpose capability is reported in MatMulFormatSupport.
         virtual coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) = 0;
+
+        // Queries thread outer-product and/or vector atomic accumulate-store support used for cooperative-vector training.
+        virtual coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(
+            const coopvec::TrainingFormatQuery& query) = 0;
 
         // Calculates and returns the on-device size for a CoopVec matrix of the given dimensions, type and layout.
         virtual size_t getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns) = 0;
