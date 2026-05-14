@@ -2937,11 +2937,10 @@ namespace nvrhi
         };
 
         // Describes a combination of input and output data types for matrix multiplication with Cooperative Vectors.
-        // - DX12: Preview 717 uses D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL; preview 720+ uses
-        //         D3D12_FEATURE_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT (THREAD_VECTOR_MATRIX_MULTIPLY).
-        // - Vulkan: Maps from VkCooperativeVectorPropertiesNV.
         struct MatMulFormatCombo
         {
+            // Raw storage element type (e.g. UInt8 stored and interpreted as FloatE4M3 via inputInterpretation).
+            // May equal inputInterpretation for standard float types. See backend implementations for details.
             DataType inputType;
             DataType inputInterpretation;
             DataType matrixInterpretation;
@@ -2958,28 +2957,19 @@ namespace nvrhi
             bool emulatedInputs = false;
         };
 
-        // Describes which cooperative-vector training operations must succeed for queryCoopVecTrainingFormatSupport.
-        // accumulateComponentType is used for THREAD_OUTER_PRODUCT input/result and for ATOMIC_ACCUMULATE_STORE (Linalg),
-        // and for preview list matching (preview path).
-        struct TrainingFormatQuery
-        {
-            DataType accumulateComponentType = DataType::Float16;
-            bool requireOuterProduct = true;
-            bool requireVectorAccumulateUav = true;
-            bool requireVectorAccumulateGroupShared = true;
-        };
-
-        // Granular cooperative-vector training support; see queryCoopVecTrainingFormatSupport.
-        // On D3D12 preview coop-vector APIs, UAV and group-shared accumulation cannot be queried separately —
-        // both flags are true iff vector accumulate supports the accumulation component type for that backend.
-        // On Vulkan only one training accumulation flag exists per Float16/Float32; outer and accumulate bits mirror that bool.
+        // Result of queryCoopVecTrainingFormatSupport.
+        //
+        // The query tests the full training stack for the given component type: thread outer-product
+        // and vector atomic accumulate into both a UAV (RW byte-address buffer) and group-shared
+        // memory. `supported` is true only when all three paths are available.
         struct TrainingFormatSupport
         {
-            bool supported = false;
+            bool supported = false;                   // true when outerProductSupported && vectorAccumulate
             bool outerProductSupported = false;
-            bool vectorAccumulateRwByteAddressBufferSupported = false;
-            bool vectorAccumulateGroupSharedSupported = false;
+            bool vectorAccumulate = false;            // RW byte-address buffer (UAV) accumulate
+            bool vectorAccumulateGroupShared = false; // group-shared memory accumulate (D3D12 linalg 720+ only)
         };
+
 
         struct DeviceFeatures
         {
@@ -3733,9 +3723,10 @@ namespace nvrhi
         // combination.transposeSupported is ignored; transpose capability is reported in MatMulFormatSupport.
         virtual coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) = 0;
 
-        // Queries thread outer-product and/or vector atomic accumulate-store support used for cooperative-vector training.
-        virtual coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(
-            const coopvec::TrainingFormatQuery& query) = 0;
+        // Queries full training stack support (outer product + UAV accumulate + group-shared accumulate)
+        // for the given accumulation component type (typically Float16 or Float32).
+        // See TrainingFormatSupport for details on what each flag means and backend-specific granularity.
+        virtual coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(coopvec::DataType componentType) = 0;
 
         // Calculates and returns the on-device size for a CoopVec matrix of the given dimensions, type and layout.
         virtual size_t getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns) = 0;

@@ -478,6 +478,26 @@ namespace nvrhi::vulkan
         return result;
     }
 
+    void Device::getCoopVecMatMulProperties() const
+    {
+        if (m_CoopVecMatMulPropertiesPopulated)
+            return;
+        m_CoopVecMatMulPropertiesPopulated = true;
+
+        if (!m_Context.extensions.NV_cooperative_vector)
+            return;
+
+        uint32_t propertyCount = 0;
+        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(
+                &propertyCount, nullptr) != vk::Result::eSuccess || propertyCount == 0)
+            return;
+
+        m_CoopVecMatMulProperties.resize(propertyCount);
+        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(
+                &propertyCount, m_CoopVecMatMulProperties.data()) != vk::Result::eSuccess)
+            m_CoopVecMatMulProperties.clear();
+    }
+
     // Deprecated aggregate query; prefer queryCoopVecMatMulFormatSupport and queryCoopVecTrainingFormatSupport (IDevice).
     coopvec::DeviceFeatures Device::queryCoopVecFeatures()
     {
@@ -486,18 +506,10 @@ namespace nvrhi::vulkan
         if (!m_Context.extensions.NV_cooperative_vector)
             return result;
 
-        uint32_t propertyCount = 0;
-        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(&propertyCount, nullptr) != vk::Result::eSuccess)
-            return result;
-        if (propertyCount == 0)
-            return result;
+        getCoopVecMatMulProperties();
 
-        std::vector<vk::CooperativeVectorPropertiesNV> properties(propertyCount);
-        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(&propertyCount, properties.data()) != vk::Result::eSuccess)
-            return result;
-        
-        result.matMulFormats.reserve(propertyCount);
-        for (vk::CooperativeVectorPropertiesNV const& prop : properties)
+        result.matMulFormats.reserve(m_CoopVecMatMulProperties.size());
+        for (const vk::CooperativeVectorPropertiesNV& prop : m_CoopVecMatMulProperties)
         {
             coopvec::MatMulFormatCombo& combo = result.matMulFormats.emplace_back();
             combo.inputType = convertCoopVecDataType(prop.inputType);
@@ -508,22 +520,21 @@ namespace nvrhi::vulkan
             combo.transposeSupported = !!prop.transpose;
         }
 
-        coopvec::TrainingFormatQuery trainingQuery{};
-        trainingQuery.accumulateComponentType = coopvec::DataType::Float16;
-        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(trainingQuery).supported;
-
-        trainingQuery.accumulateComponentType = coopvec::DataType::Float32;
-        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(trainingQuery).supported;
-
+        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float16).supported;
+        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float32).supported;
 
         return result;
     }
 
+    // Matches combination against VkCooperativeVectorPropertiesNV entries from the cached property
+    // list. Both inputType and inputInterpretation are matched as independent fields.
     coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
     {
         coopvec::MatMulFormatSupport result{};
         if (!m_Context.extensions.NV_cooperative_vector)
             return result;
+
+        getCoopVecMatMulProperties();
 
         const vk::ComponentTypeKHR inputType = convertCoopVecDataType(combination.inputType);
         const vk::ComponentTypeKHR inputInterpretation = convertCoopVecDataType(combination.inputInterpretation);
@@ -531,17 +542,7 @@ namespace nvrhi::vulkan
         const vk::ComponentTypeKHR biasInterpretation = convertCoopVecDataType(combination.biasInterpretation);
         const vk::ComponentTypeKHR resultType = convertCoopVecDataType(combination.outputType);
 
-        uint32_t propertyCount = 0;
-        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(&propertyCount, nullptr) != vk::Result::eSuccess)
-            return result;
-        if (propertyCount == 0)
-            return result;
-
-        std::vector<vk::CooperativeVectorPropertiesNV> properties(propertyCount);
-        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(&propertyCount, properties.data()) != vk::Result::eSuccess)
-            return result;
-
-        for (const vk::CooperativeVectorPropertiesNV& prop : properties)
+        for (const vk::CooperativeVectorPropertiesNV& prop : m_CoopVecMatMulProperties)
         {
             if (prop.inputType == inputType &&
                 prop.inputInterpretation == inputInterpretation &&
@@ -554,10 +555,14 @@ namespace nvrhi::vulkan
                 return result;
             }
         }
+
         return result;
     }
 
-    coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(const coopvec::TrainingFormatQuery& query)
+    // Uses cooperativeVectorTrainingFloat16Accumulation / cooperativeVectorTrainingFloat32Accumulation
+    // device properties. A single flag covers outer-product and UAV accumulate.
+    // vectorAccumulateGroupShared is not queryable on this path and remains false.
+    coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(coopvec::DataType componentType)
     {
         coopvec::TrainingFormatSupport result{};
 
@@ -567,36 +572,20 @@ namespace nvrhi::vulkan
         const auto& props = m_Context.coopVecProperties;
 
         vk::Bool32 vkTrainingAccumulationSupported = vk::False;
-        if (query.accumulateComponentType == coopvec::DataType::Float16)
+        if (componentType == coopvec::DataType::Float16)
             vkTrainingAccumulationSupported = props.cooperativeVectorTrainingFloat16Accumulation;
-        else if (query.accumulateComponentType == coopvec::DataType::Float32)
+        else if (componentType == coopvec::DataType::Float32)
             vkTrainingAccumulationSupported = props.cooperativeVectorTrainingFloat32Accumulation;
         else
             return result;
 
         const bool trainingAccumulationSupported = (vkTrainingAccumulationSupported != vk::False);
 
-        if (query.requireOuterProduct)
-            result.outerProductSupported = trainingAccumulationSupported;
-
-        const bool needAccum =
-            query.requireVectorAccumulateUav || query.requireVectorAccumulateGroupShared;
-        if (needAccum)
-        {
-            // Vulkan exposes one training accumulation flag per precision, not separate outer product vs
-            // RWByteAddressBuffer vs group-shared paths. Mirror the same value for all three when Float16/32.
-            result.vectorAccumulateRwByteAddressBufferSupported = trainingAccumulationSupported;
-            result.vectorAccumulateGroupSharedSupported = trainingAccumulationSupported;
-        }
-
-        bool supported = true;
-        if (query.requireOuterProduct)
-            supported = supported && result.outerProductSupported;
-        if (query.requireVectorAccumulateUav)
-            supported = supported && result.vectorAccumulateRwByteAddressBufferSupported;
-        if (query.requireVectorAccumulateGroupShared)
-            supported = supported && result.vectorAccumulateGroupSharedSupported;
-        result.supported = supported;
+        // Vulkan exposes one training accumulation flag per precision, not separate outer product vs
+        // RWByteAddressBuffer vs group-shared paths. Mirror the same value for all three when Float16/32.
+        result.outerProductSupported = trainingAccumulationSupported;
+        result.vectorAccumulate = trainingAccumulationSupported;
+        result.supported = result.outerProductSupported && result.vectorAccumulate;
 
         return result;
     }

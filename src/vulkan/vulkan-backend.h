@@ -1158,7 +1158,7 @@ namespace nvrhi::vulkan
         FormatSupport queryFormatSupport(Format format) override;
         coopvec::DeviceFeatures queryCoopVecFeatures() override;
         coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) override;
-        coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(const coopvec::TrainingFormatQuery& query) override;
+        coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(coopvec::DataType componentType) override;
         size_t getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns) override;
         Object getNativeQueue(ObjectType objectType, CommandQueue queue) override;
         IMessageCallback* getMessageCallback() override { return m_Context.messageCallback; }
@@ -1187,7 +1187,12 @@ namespace nvrhi::vulkan
 
         // array of submission queues
         std::array<std::unique_ptr<Queue>, uint32_t(CommandQueue::Count)> m_Queues;
-        
+
+        // Lazily populated on the first call to queryCoopVecMatMulFormatSupport or queryCoopVecFeatures.
+        mutable std::vector<vk::CooperativeVectorPropertiesNV> m_CoopVecMatMulProperties;
+        mutable bool m_CoopVecMatMulPropertiesPopulated = false;
+        void getCoopVecMatMulProperties() const;
+
         void *mapBuffer(IBuffer* b, CpuAccessMode flags, uint64_t offset, size_t size) const;
     };
 

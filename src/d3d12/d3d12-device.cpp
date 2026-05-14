@@ -749,12 +749,9 @@ namespace nvrhi::d3d12
             return result;
         }
 
-        coopvec::TrainingFormatQuery trainingQuery{};
-        trainingQuery.accumulateComponentType = coopvec::DataType::Float16;
-        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(trainingQuery).supported;
+        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float16).supported;
 
-        trainingQuery.accumulateComponentType = coopvec::DataType::Float32;
-        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(trainingQuery).supported;
+        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float32).supported;
 #else
         // Preview 717: D3D12_FEATURE_COOPERATIVE_VECTOR and typed property arrays.
         D3D12_FEATURE_DATA_COOPERATIVE_VECTOR coopVecData{};
@@ -784,17 +781,19 @@ namespace nvrhi::d3d12
             combo.transposeSupported = !!prop.TransposeSupported;
         }
 
-        coopvec::TrainingFormatQuery trainingQuery{};
-        trainingQuery.accumulateComponentType = coopvec::DataType::Float16;
-        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(trainingQuery).supported;
+        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float16).supported;
 
-        trainingQuery.accumulateComponentType = coopvec::DataType::Float32;
-        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(trainingQuery).supported;
+        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float32).supported;
 #endif
 #endif
         return result;
     }
 
+    // D3D12 linalg (preview 720+): queries via D3D12_FEATURE_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT
+    //   (THREAD_VECTOR_MATRIX_MULTIPLY). inputType is not a concept on this path; only
+    //   inputInterpretation is used (asserted equal to inputType in debug builds).
+    // D3D12 preview 717: scans D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL; both inputType and
+    //   inputInterpretation are matched as independent fields.
     coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
     {
         coopvec::MatMulFormatSupport result{};
@@ -803,6 +802,9 @@ namespace nvrhi::d3d12
 
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
 #if NVRHI_D3D12_WITH_LINALG
+        assert(combination.inputType == combination.inputInterpretation &&
+            "MatMulFormatCombo::inputType is ignored on D3D12 linalg (preview 720+); set it equal to inputInterpretation");
+
         const D3D12_LINEAR_ALGEBRA_DATATYPE vectorInput = convertCoopVecDataType(combination.inputInterpretation);
         const D3D12_LINEAR_ALGEBRA_DATATYPE matrixInput = convertCoopVecDataType(combination.matrixInterpretation);
         const D3D12_LINEAR_ALGEBRA_DATATYPE biasInput = convertCoopVecDataType(combination.biasInterpretation);
@@ -875,7 +877,11 @@ namespace nvrhi::d3d12
 #endif // NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
     }
 
-    coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(const coopvec::TrainingFormatQuery& query)
+    // D3D12 linalg (preview 720+): queries THREAD_OUTER_PRODUCT and ATOMIC_ACCUMULATE_STORE
+    //   separately via CheckFeatureSupport; UAV and group-shared accumulate are distinguished.
+    // D3D12 preview 717: scans outer-product and vector-accumulate property lists.
+    //   vectorAccumulateGroupShared is not queryable on this path and remains false.
+    coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(coopvec::DataType componentType)
     {
         coopvec::TrainingFormatSupport result{};
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
@@ -883,17 +889,14 @@ namespace nvrhi::d3d12
             return result;
 
 #if NVRHI_D3D12_WITH_LINALG
-        const bool requiresVectorAccumulateProbe = query.requireVectorAccumulateUav || query.requireVectorAccumulateGroupShared;
+        const D3D12_LINEAR_ALGEBRA_DATATYPE d3dComponentType = convertCoopVecDataType(componentType);
 
-        const D3D12_LINEAR_ALGEBRA_DATATYPE componentType = convertCoopVecDataType(query.accumulateComponentType);
-
-        if (query.requireOuterProduct)
         {
             D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT outerProductOp = {};
             outerProductOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT;
 
-            outerProductOp.ThreadOuterProductSupport.InputComponentType = componentType;
-            outerProductOp.ThreadOuterProductSupport.ResultComponentType = componentType;
+            outerProductOp.ThreadOuterProductSupport.InputComponentType = d3dComponentType;
+            outerProductOp.ThreadOuterProductSupport.ResultComponentType = d3dComponentType;
 
             if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT, &outerProductOp, sizeof(outerProductOp))))
             {
@@ -901,38 +904,22 @@ namespace nvrhi::d3d12
             }
         }
 
-        if (requiresVectorAccumulateProbe)
         {
             D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT accumulateStoreOp = {};
             accumulateStoreOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE;
-            accumulateStoreOp.AccumulateStore.ComponentType = componentType;
+            accumulateStoreOp.AccumulateStore.ComponentType = d3dComponentType;
 
             if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT, &accumulateStoreOp, sizeof(accumulateStoreOp))))
             {
-                result.vectorAccumulateRwByteAddressBufferSupported = accumulateStoreOp.AccumulateStore.RWByteAddressBufferSupported != FALSE;
-                result.vectorAccumulateGroupSharedSupported = accumulateStoreOp.AccumulateStore.GroupSharedSupported != FALSE;
+                result.vectorAccumulate = accumulateStoreOp.AccumulateStore.RWByteAddressBufferSupported != FALSE;
+                result.vectorAccumulateGroupShared = accumulateStoreOp.AccumulateStore.GroupSharedSupported != FALSE;
             }
         }
 
-        const bool outerProductRequirementSatisfied = !query.requireOuterProduct || result.outerProductSupported;
-
-        const bool vectorAccumulateUavRequirementSatisfied =
-            !query.requireVectorAccumulateUav || result.vectorAccumulateRwByteAddressBufferSupported;
-
-        const bool vectorAccumulateGroupSharedRequirementSatisfied =
-            !query.requireVectorAccumulateGroupShared || result.vectorAccumulateGroupSharedSupported;
-
-        const bool hasCapabilityRequirements =
-            query.requireOuterProduct || query.requireVectorAccumulateUav || query.requireVectorAccumulateGroupShared;
-
-        result.supported = hasCapabilityRequirements && 
-            outerProductRequirementSatisfied && 
-            vectorAccumulateUavRequirementSatisfied && 
-            vectorAccumulateGroupSharedRequirementSatisfied;
+        result.supported = result.outerProductSupported && result.vectorAccumulate;
 #else
         // Preview cooperative-vector property lists (see queryCoopVecFeatures)
-        const D3D12_LINEAR_ALGEBRA_DATATYPE accD3d = convertCoopVecDataType(query.accumulateComponentType);
-        const bool needAccumProbe = query.requireVectorAccumulateUav || query.requireVectorAccumulateGroupShared;
+        const D3D12_LINEAR_ALGEBRA_DATATYPE accD3d = convertCoopVecDataType(componentType);
 
         D3D12_FEATURE_DATA_COOPERATIVE_VECTOR coopVecData{};
         if (FAILED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR,
@@ -950,51 +937,28 @@ namespace nvrhi::d3d12
                 &coopVecData, sizeof(coopVecData))))
             return result;
 
-        if (query.requireOuterProduct)
+        for (const auto& prop : outerAccumProps)
         {
-            for (const auto& prop : outerAccumProps)
+            if (prop.AccumulationType == accD3d)
             {
-                if (prop.AccumulationType == accD3d)
-                {
-                    result.outerProductSupported = true;
-                    break;
-                }
+                result.outerProductSupported = true;
+                break;
             }
         }
 
-        if (needAccumProbe)
+        for (const auto& prop : vectorAccumProps)
         {
-            bool vecHit = false;
-            for (const auto& prop : vectorAccumProps)
+            if (prop.AccumulationType == accD3d)
             {
-                if (prop.AccumulationType == accD3d)
-                {
-                    vecHit = true;
-                    break;
-                }
+                result.vectorAccumulate = true;
+                break;
             }
-            result.vectorAccumulateRwByteAddressBufferSupported = vecHit;
-            result.vectorAccumulateGroupSharedSupported = vecHit;
         }
 
-        const bool outerProductRequirementSatisfied = !query.requireOuterProduct || result.outerProductSupported;
-
-        const bool vectorAccumulateUavRequirementSatisfied =
-            !query.requireVectorAccumulateUav || result.vectorAccumulateRwByteAddressBufferSupported;
-
-        const bool vectorAccumulateGroupSharedRequirementSatisfied =
-            !query.requireVectorAccumulateGroupShared || result.vectorAccumulateGroupSharedSupported;
-
-        const bool hasCapabilityRequirements =
-            query.requireOuterProduct || query.requireVectorAccumulateUav || query.requireVectorAccumulateGroupShared;
-
-        result.supported = hasCapabilityRequirements &&
-            outerProductRequirementSatisfied &&
-            vectorAccumulateUavRequirementSatisfied &&
-            vectorAccumulateGroupSharedRequirementSatisfied;
+        result.supported = result.outerProductSupported && result.vectorAccumulate;
 #endif
 #else
-        (void)query;
+        (void)componentType;
 #endif
         return result;
     }

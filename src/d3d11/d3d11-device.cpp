@@ -423,7 +423,7 @@ namespace nvrhi::d3d11
         return coopvec::MatMulFormatSupport{};
     }
 
-    coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(const coopvec::TrainingFormatQuery&)
+    coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(coopvec::DataType)
     {
         utils::NotSupported();
         return coopvec::TrainingFormatSupport{};
