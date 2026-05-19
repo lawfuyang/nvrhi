@@ -484,7 +484,7 @@ namespace nvrhi::vulkan
             return;
         m_CoopVecMatMulPropertiesPopulated = true;
 
-        if (!m_Context.extensions.NV_cooperative_vector)
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVector)
             return;
 
         uint32_t propertyCount = 0;
@@ -503,7 +503,7 @@ namespace nvrhi::vulkan
     {
         coopvec::DeviceFeatures result;
 
-        if (!m_Context.extensions.NV_cooperative_vector)
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVector)
             return result;
 
         getCoopVecMatMulProperties();
@@ -520,8 +520,8 @@ namespace nvrhi::vulkan
             combo.transposeSupported = !!prop.transpose;
         }
 
-        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float16).supported;
-        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float32).supported;
+        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float16).bufferTrainingSupported;
+        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float32).bufferTrainingSupported;
 
         return result;
     }
@@ -531,7 +531,7 @@ namespace nvrhi::vulkan
     coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
     {
         coopvec::MatMulFormatSupport result{};
-        if (!m_Context.extensions.NV_cooperative_vector)
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVector)
             return result;
 
         getCoopVecMatMulProperties();
@@ -561,12 +561,12 @@ namespace nvrhi::vulkan
 
     // Uses cooperativeVectorTrainingFloat16Accumulation / cooperativeVectorTrainingFloat32Accumulation
     // device properties. A single flag covers outer-product and UAV accumulate.
-    // vectorAccumulateGroupShared is not queryable on this path and remains false.
+    // group-shared accumulate is not queryable on this path and remains false.
     coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(coopvec::DataType componentType)
     {
         coopvec::TrainingFormatSupport result{};
 
-        if (!m_Context.extensions.NV_cooperative_vector)
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVectorTraining)
             return result;
 
         const auto& props = m_Context.coopVecProperties;
@@ -582,10 +582,10 @@ namespace nvrhi::vulkan
         const bool trainingAccumulationSupported = (vkTrainingAccumulationSupported != vk::False);
 
         // Vulkan exposes one training accumulation flag per precision, not separate outer product vs
-        // RWByteAddressBuffer vs group-shared paths. Mirror the same value for all three when Float16/32.
-        result.outerProductSupported = trainingAccumulationSupported;
-        result.vectorAccumulate = trainingAccumulationSupported;
-        result.supported = result.outerProductSupported && result.vectorAccumulate;
+        // buffer accumulate-store vs group-shared paths. Mirror it into the buffer-training details.
+        result.threadOuterProductSupported = trainingAccumulationSupported;
+        result.bufferAccumulateStoreSupported = trainingAccumulationSupported;
+        result.bufferTrainingSupported = result.threadOuterProductSupported && result.bufferAccumulateStoreSupported;
 
         return result;
     }

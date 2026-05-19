@@ -2959,17 +2959,17 @@ namespace nvrhi
 
         // Result of queryCoopVecTrainingFormatSupport.
         //
-        // The query tests the full training stack for the given component type: thread outer-product
-        // and vector atomic accumulate into both a UAV (RW byte-address buffer) and group-shared
-        // memory. `supported` is true only when all three paths are available.
+        // The high-level flag reports a complete buffer-training path for the given accumulation
+        // component type. D3D12 linalg 720+ can also report whether atomic accumulate-store supports
+        // group-shared memory as a destination, but that is exposed only as a lower-level detail.
         struct TrainingFormatSupport
         {
-            bool supported = false;                   // true when outerProductSupported && vectorAccumulate
-            bool outerProductSupported = false;
-            bool vectorAccumulate = false;            // RW byte-address buffer (UAV) accumulate
-            bool vectorAccumulateGroupShared = false; // group-shared memory accumulate (D3D12 linalg 720+ only)
-        };
+            bool bufferTrainingSupported = false; // thread outer product + buffer/UAV accumulate-store
 
+            bool threadOuterProductSupported = false;
+            bool bufferAccumulateStoreSupported = false;      // RW byte-address buffer/UAV accumulate-store
+            bool groupSharedAccumulateStoreSupported = false; // group-shared accumulate-store 
+        };
 
         struct DeviceFeatures
         {
@@ -2977,11 +2977,11 @@ namespace nvrhi
             std::vector<MatMulFormatCombo> matMulFormats;
 
             // - DX12: Preview 717 uses outer-product / vector accumulation property lists from D3D12_FEATURE_COOPERATIVE_VECTOR;
-            //         preview 720+ derives training support from THREAD_OUTER_PRODUCT and ATOMIC_ACCUMULATE_STORE queries.
+            //         preview 720+ derives buffer training support from THREAD_OUTER_PRODUCT and ATOMIC_ACCUMULATE_STORE queries.
             // - Vulkan: True if cooperativeVectorTrainingFloat16Accumulation is supported.
             bool trainingFloat16 = false;
 
-            // - DX12: Same training gating semantics as trainingFloat16, evaluated for FLOAT32 accumulation paths.
+            // - DX12: Same buffer training gating semantics as trainingFloat16, evaluated for FLOAT32 accumulation paths.
             // - Vulkan: True if cooperativeVectorTrainingFloat32Accumulation is supported.
             bool trainingFloat32 = false;
         };
@@ -3714,17 +3714,18 @@ namespace nvrhi
 
         virtual FormatSupport queryFormatSupport(Format format) = 0;
 
-        // Returns supported CoopVec matrix-multiply combinations plus Float16/Float32 training summaries.
+        // Returns supported CoopVec matrix-multiply combinations plus Float16/Float32 buffer-training summaries.
         // Deprecated for new code: use queryCoopVecMatMulFormatSupport(...) and queryCoopVecTrainingFormatSupport(...)
         // instead; this aggregate may be removed in a future version.
+        // On D3D12 linalg 720+, matMulFormats is not populated; use queryCoopVecMatMulFormatSupport(...)
+        // to query specific combinations.
         virtual coopvec::DeviceFeatures queryCoopVecFeatures() = 0;
 
         // Queries support for thread vector matrix multiply with the given type combination.
         // combination.transposeSupported is ignored; transpose capability is reported in MatMulFormatSupport.
         virtual coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) = 0;
 
-        // Queries full training stack support (outer product + UAV accumulate + group-shared accumulate)
-        // for the given accumulation component type (typically Float16 or Float32).
+        // Queries training support for the given accumulation component type (typically Float16 or Float32).
         // See TrainingFormatSupport for details on what each flag means and backend-specific granularity.
         virtual coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(coopvec::DataType componentType) = 0;
 
