@@ -151,10 +151,7 @@ namespace nvrhi::d3d12
             if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_SUPPORT, &linearAlgebraSupport, 
                 sizeof(linearAlgebraSupport))))
             {
-                m_CoopVecInferencingSupported = linearAlgebraSupport.LinearAlgebraTier >= D3D12_LINEAR_ALGEBRA_TIER_1_0;
-                // Tier 1.0 exposes the linalg operation queries used to determine per-format
-                // training support. Individual training operations are not guaranteed by the tier.
-                m_CoopVecTrainingSupported = linearAlgebraSupport.LinearAlgebraTier >= D3D12_LINEAR_ALGEBRA_TIER_1_0;
+                m_LinearAlgebraSupported = linearAlgebraSupport.LinearAlgebraTier >= D3D12_LINEAR_ALGEBRA_TIER_1_0;
             }
 #else
             D3D12_FEATURE_DATA_D3D12_OPTIONS_EXPERIMENTAL experimentalOptions{};
@@ -684,9 +681,9 @@ namespace nvrhi::d3d12
             }
             return true;
         case Feature::CooperativeVectorInferencing:
-            return m_CoopVecInferencingSupported;
+            return m_LinearAlgebraSupported;
         case Feature::CooperativeVectorTraining:
-            return m_CoopVecTrainingSupported;  
+            return m_LinearAlgebraSupported;  
         default:
             return false;
         }
@@ -748,7 +745,7 @@ namespace nvrhi::d3d12
 #if NVRHI_D3D12_WITH_LINALG
         // D3D12 linalg 720+ exposes matrix multiply support through per-combination queries,
         // so this deprecated aggregate does not populate matMulFormats on this path.
-        if (!m_CoopVecInferencingSupported)
+        if (!m_LinearAlgebraSupported)
         {
             return result;
         }
@@ -801,7 +798,7 @@ namespace nvrhi::d3d12
     coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
     {
         coopvec::MatMulFormatSupport result{};
-        if (!m_CoopVecInferencingSupported)
+        if (!m_LinearAlgebraSupported)
             return result;
 
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
@@ -970,7 +967,7 @@ namespace nvrhi::d3d12
     size_t Device::getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns)
     {
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
-        if (!m_CoopVecInferencingSupported || !m_Context.devicePreview)
+        if (!m_LinearAlgebraSupported || !m_Context.devicePreview)
             return 0;
 
         D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO destInfo = {};

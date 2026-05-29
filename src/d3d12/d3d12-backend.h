@@ -73,13 +73,13 @@
 
 // Preview 717 exposes cooperative-vector feature queries (D3D12_FEATURE_COOPERATIVE_VECTOR).
 // Preview 720+ uses the Linear Algebra feature tier and matrix-operation queries when DIRECT3D_LINEAR_ALGEBRA is defined.
-#if (D3D12_PREVIEW_SDK_VERSION == 717) || (defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 720)
+#if (D3D12_PREVIEW_SDK_VERSION == 717) || (defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 721)
 #define NVRHI_D3D12_WITH_COOP_VECTOR_COMMON (1)
 #else
 #define NVRHI_D3D12_WITH_COOP_VECTOR_COMMON (0)
 #endif
 
-#if defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 720
+#if defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 721
 #define NVRHI_D3D12_WITH_LINALG (1)
 #else
 #define NVRHI_D3D12_WITH_LINALG (0)
@@ -1308,8 +1308,12 @@ namespace nvrhi::d3d12
         bool m_SamplerFeedbackSupported = false;
         bool m_AftermathEnabled = false;
         bool m_HeapDirectlyIndexedEnabled = false;
+#if NVRHI_D3D12_WITH_LINALG
+        bool m_LinearAlgebraSupported = false;
+#else
         bool m_CoopVecInferencingSupported = false;
         bool m_CoopVecTrainingSupported = false;
+#endif
         AftermathCrashDumpHelper m_AftermathCrashDumpHelper;
 
 
