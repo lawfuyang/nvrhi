@@ -2165,6 +2165,14 @@ namespace nvrhi::d3d12
 
         if (dstAS && srcAS && dstAS->dataBuffer && srcAS->dataBuffer)
         {
+            if (m_EnableAutomaticBarriers)
+            {
+                requireBufferState(srcAS->dataBuffer, ResourceStates::AccelStructBuildBlas);
+                requireBufferState(dstAS->dataBuffer, ResourceStates::AccelStructWrite);
+                m_BindingStatesDirty = true;
+            }
+            commitBarriers();
+
             m_ActiveCommandList->commandList4->CopyRaytracingAccelerationStructure(
                 dstAS->dataBuffer->gpuVA,
                 srcAS->dataBuffer->gpuVA,

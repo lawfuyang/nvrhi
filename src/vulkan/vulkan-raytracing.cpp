@@ -871,6 +871,14 @@ namespace nvrhi::vulkan
 
         if (dstAS && srcAS && dstAS->accelStruct && srcAS->accelStruct)
         {
+            if (m_EnableAutomaticBarriers)
+            {
+                requireBufferState(srcAS->dataBuffer, ResourceStates::AccelStructBuildBlas);
+                requireBufferState(dstAS->dataBuffer, ResourceStates::AccelStructWrite);
+                m_BindingStatesDirty = true;
+            }
+            commitBarriers();
+
             vk::CopyAccelerationStructureInfoKHR copyInfo;
             copyInfo.src = srcAS->accelStruct;
             copyInfo.dst = dstAS->accelStruct;
