@@ -55,6 +55,28 @@ namespace nvrhi::d3d12
         }
     }
 
+#if NVRHI_D3D12_WITH_LINALG
+    static bool isLinearAlgebraDataTypeSupported(coopvec::DataType type)
+    {
+        switch (type)
+        {
+        case coopvec::DataType::UInt8:
+        case coopvec::DataType::SInt8:
+        case coopvec::DataType::UInt16:
+        case coopvec::DataType::SInt16:
+        case coopvec::DataType::UInt32:
+        case coopvec::DataType::SInt32:
+        case coopvec::DataType::FloatE4M3:
+        case coopvec::DataType::FloatE5M2:
+        case coopvec::DataType::Float16:
+        case coopvec::DataType::Float32:
+            return true;
+
+        default:
+            return false;
+        }
+    }
+#endif
 
     DeviceHandle createDevice(const DeviceDesc& desc)
     {
@@ -681,9 +703,17 @@ namespace nvrhi::d3d12
             }
             return true;
         case Feature::CooperativeVectorInferencing:
+#if NVRHI_D3D12_WITH_LINALG
             return m_LinearAlgebraSupported;
+#else
+            return m_CoopVecInferencingSupported;
+#endif
         case Feature::CooperativeVectorTraining:
-            return m_LinearAlgebraSupported;  
+#if NVRHI_D3D12_WITH_LINALG
+            return m_LinearAlgebraSupported;
+#else
+            return m_CoopVecTrainingSupported;
+#endif
         default:
             return false;
         }
@@ -798,12 +828,19 @@ namespace nvrhi::d3d12
     coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
     {
         coopvec::MatMulFormatSupport result{};
-        if (!m_LinearAlgebraSupported)
-            return result;
 
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
 #if NVRHI_D3D12_WITH_LINALG
+        if (!m_LinearAlgebraSupported)
+            return result;
+
         if (combination.inputType != combination.inputInterpretation)
+            return result;
+
+        if (!isLinearAlgebraDataTypeSupported(combination.inputInterpretation) ||
+            !isLinearAlgebraDataTypeSupported(combination.matrixInterpretation) ||
+            !isLinearAlgebraDataTypeSupported(combination.biasInterpretation) ||
+            !isLinearAlgebraDataTypeSupported(combination.outputType))
             return result;
 
         const D3D12_LINEAR_ALGEBRA_DATATYPE vectorInput = convertCoopVecDataType(combination.inputInterpretation);
@@ -835,6 +872,9 @@ namespace nvrhi::d3d12
         return result;
 #else
         // Preview 717: scan D3D12_FEATURE_COOPERATIVE_VECTOR matrix-vector mul property list.
+        if (!m_CoopVecInferencingSupported)
+            return result;
+
         const auto inputType = convertCoopVecDataType(combination.inputType);
         const auto inputInterpretation = convertCoopVecDataType(combination.inputInterpretation);
         const auto matrixInterpretation = convertCoopVecDataType(combination.matrixInterpretation);
@@ -887,6 +927,12 @@ namespace nvrhi::d3d12
         coopvec::TrainingFormatSupport result{};
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
 #if NVRHI_D3D12_WITH_LINALG
+        if (!m_LinearAlgebraSupported)
+            return result;
+
+        if (!isLinearAlgebraDataTypeSupported(componentType))
+            return result;
+
         const D3D12_LINEAR_ALGEBRA_DATATYPE d3dComponentType = convertCoopVecDataType(componentType);
 
         {
@@ -967,8 +1013,16 @@ namespace nvrhi::d3d12
     size_t Device::getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns)
     {
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
+#if NVRHI_D3D12_WITH_LINALG
         if (!m_LinearAlgebraSupported || !m_Context.devicePreview)
             return 0;
+
+        if (!isLinearAlgebraDataTypeSupported(type))
+            return 0;
+#else
+        if (!m_CoopVecInferencingSupported || !m_Context.devicePreview)
+            return 0;
+#endif
 
         D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO destInfo = {};
         destInfo.DestLayout = convertCoopVecMatrixLayout(layout);

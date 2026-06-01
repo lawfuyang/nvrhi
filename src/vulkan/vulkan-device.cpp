@@ -592,7 +592,7 @@ namespace nvrhi::vulkan
 
     size_t Device::getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns)
     {
-        if (!m_Context.extensions.NV_cooperative_vector)
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVector)
             return 0;
 
         size_t dstSize = 0;
