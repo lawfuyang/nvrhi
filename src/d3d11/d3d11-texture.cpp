@@ -347,9 +347,12 @@ namespace nvrhi::d3d11
 #endif
 
         Format interpretFormat = texture->desc.format;
-        if (texture->desc.isTypeless) {
-            if (!(formatInfo.hasDepth || formatInfo.hasStencil)) {
-                switch (formatInfo.bytesPerBlock) {
+        if (texture->desc.isTypeless)
+        {
+            if (!(formatInfo.hasDepth || formatInfo.hasStencil))
+            {
+                switch (formatInfo.bytesPerBlock)
+                {
                     case 1:
                         interpretFormat = Format::R8_UINT;
                         break;

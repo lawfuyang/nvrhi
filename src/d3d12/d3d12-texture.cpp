@@ -1086,9 +1086,12 @@ namespace nvrhi::d3d12
 #endif
 
         Format interpretFormat = t->desc.format;
-        if (t->desc.isTypeless) {
-            if (!(formatInfo.hasDepth || formatInfo.hasStencil)) {
-                switch (formatInfo.bytesPerBlock) {
+        if (t->desc.isTypeless)
+        {
+            if (!(formatInfo.hasDepth || formatInfo.hasStencil))
+            {
+                switch (formatInfo.bytesPerBlock)
+                {
                     case 1:
                         interpretFormat = Format::R8_UINT;
                         break;
