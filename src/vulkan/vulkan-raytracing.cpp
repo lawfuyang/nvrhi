@@ -864,6 +864,30 @@ namespace nvrhi::vulkan
 #endif
     }
 
+    void CommandList::copyRaytracingAccelerationStructure(rt::IAccelStruct* destination, rt::IAccelStruct* source)
+    {
+        AccelStruct* dstAS = checked_cast<AccelStruct*>(destination);
+        AccelStruct* srcAS = checked_cast<AccelStruct*>(source);
+
+        if (dstAS && srcAS && dstAS->accelStruct && srcAS->accelStruct)
+        {
+            if (m_EnableAutomaticBarriers)
+            {
+                requireBufferState(srcAS->dataBuffer, ResourceStates::AccelStructBuildBlas);
+                requireBufferState(dstAS->dataBuffer, ResourceStates::AccelStructWrite);
+                m_BindingStatesDirty = true;
+            }
+            commitBarriers();
+
+            vk::CopyAccelerationStructureInfoKHR copyInfo;
+            copyInfo.src = srcAS->accelStruct;
+            copyInfo.dst = dstAS->accelStruct;
+            copyInfo.mode = vk::CopyAccelerationStructureModeKHR::eClone;
+
+            m_CurrentCmdBuf->cmdBuf.copyAccelerationStructureKHR(copyInfo);
+        }
+    }
+
     void CommandList::buildTopLevelAccelStructInternal(AccelStruct* as, VkDeviceAddress instanceData, size_t numInstances, rt::AccelStructBuildFlags buildFlags, uint64_t currentVersion)
     {
         // Remove the internal flag
