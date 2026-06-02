@@ -498,7 +498,7 @@ namespace nvrhi::vulkan
             m_CoopVecMatMulProperties.clear();
     }
 
-    // Deprecated aggregate query; prefer queryCoopVecMatMulFormatSupport and queryCoopVecTrainingFormatSupport (IDevice).
+    // Deprecated aggregate query. Prefer the per-format CoopVec queries on IDevice.
     coopvec::DeviceFeatures Device::queryCoopVecFeatures()
     {
         coopvec::DeviceFeatures result;
@@ -526,8 +526,7 @@ namespace nvrhi::vulkan
         return result;
     }
 
-    // Matches combination against VkCooperativeVectorPropertiesNV entries from the cached property
-    // list. Both inputType and inputInterpretation are matched as independent fields.
+    // Matches the requested type combination against the cached CoopVec property list.
     coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
     {
         coopvec::MatMulFormatSupport result{};
@@ -559,9 +558,8 @@ namespace nvrhi::vulkan
         return result;
     }
 
-    // Uses cooperativeVectorTrainingFloat16Accumulation / cooperativeVectorTrainingFloat32Accumulation
-    // device properties. A single flag covers outer-product and UAV accumulate.
-    // group-shared accumulate is not queryable on this path and remains false.
+    // Vulkan reports one training accumulation flag per precision.
+    // It does not distinguish buffer and group-shared accumulate-store support.
     coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(coopvec::DataType componentType)
     {
         coopvec::TrainingFormatSupport result{};
@@ -581,8 +579,7 @@ namespace nvrhi::vulkan
 
         const bool trainingAccumulationSupported = (vkTrainingAccumulationSupported != vk::False);
 
-        // Vulkan exposes one training accumulation flag per precision, not separate outer product vs
-        // buffer accumulate-store vs group-shared paths. Mirror it into the buffer-training details.
+        // Mirror the aggregate Vulkan flag into the buffer-training details.
         result.threadOuterProductSupported = trainingAccumulationSupported;
         result.bufferAccumulateStoreSupported = trainingAccumulationSupported;
         result.bufferTrainingSupported = result.threadOuterProductSupported && result.bufferAccumulateStoreSupported;

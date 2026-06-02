@@ -2938,11 +2938,10 @@ namespace nvrhi
             TrainingOptimal
         };
 
-        // Describes a combination of input and output data types for matrix multiplication with Cooperative Vectors.
+        // Describes a combination of input and output data types for CoopVec matrix multiplication.
         struct MatMulFormatCombo
         {
-            // Raw storage element type (e.g. UInt8 stored and interpreted as FloatE4M3 via inputInterpretation).
-            // May equal inputInterpretation for standard float types. See backend implementations for details.
+            // Raw storage element type. May differ from inputInterpretation for packed or interpreted formats.
             DataType inputType;
             DataType inputInterpretation;
             DataType matrixInterpretation;
@@ -2960,31 +2959,28 @@ namespace nvrhi
         };
 
         // Result of queryCoopVecTrainingFormatSupport.
-        //
-        // The high-level flag reports a complete buffer-training path for the given accumulation
-        // component type. D3D12 linalg 720+ can also report whether atomic accumulate-store supports
-        // group-shared memory as a destination, but that is exposed only as a lower-level detail.
         struct TrainingFormatSupport
         {
-            bool bufferTrainingSupported = false; // thread outer product + buffer/UAV accumulate-store
+            // True if the backend supports a complete buffer training path for the queried accumulation type.
+            bool bufferTrainingSupported = false;
 
             bool threadOuterProductSupported = false;
-            bool bufferAccumulateStoreSupported = false;      // RW byte-address buffer/UAV accumulate-store
-            bool groupSharedAccumulateStoreSupported = false; // group-shared accumulate-store 
+            bool bufferAccumulateStoreSupported = false;
+            bool groupSharedAccumulateStoreSupported = false;
         };
 
+        // Deprecated aggregate CoopVec support information.
+        // New code should use queryCoopVecMatMulFormatSupport(...) and
+        // queryCoopVecTrainingFormatSupport(...) instead.
         struct DeviceFeatures
         {
-            // Format combinations supported by the device for matrix multiplication with Cooperative Vectors.
+            // Format combinations supported by the device for CoopVec matrix multiplication.
             std::vector<MatMulFormatCombo> matMulFormats;
 
-            // - DX12: Preview 717 uses outer-product / vector accumulation property lists from D3D12_FEATURE_COOPERATIVE_VECTOR;
-            //         preview 720+ derives buffer training support from THREAD_OUTER_PRODUCT and ATOMIC_ACCUMULATE_STORE queries.
-            // - Vulkan: True if cooperativeVectorTrainingFloat16Accumulation is supported.
+            // True if the backend supports a complete buffer training path for Float16 accumulation.
             bool trainingFloat16 = false;
 
-            // - DX12: Same buffer training gating semantics as trainingFloat16, evaluated for FLOAT32 accumulation paths.
-            // - Vulkan: True if cooperativeVectorTrainingFloat32Accumulation is supported.
+            // True if the backend supports a complete buffer training path for Float32 accumulation.
             bool trainingFloat32 = false;
         };
 
@@ -3734,19 +3730,19 @@ namespace nvrhi
 
         virtual FormatSupport queryFormatSupport(Format format) = 0;
 
-        // Returns supported CoopVec matrix-multiply combinations plus Float16/Float32 buffer-training summaries.
-        // Deprecated for new code: use queryCoopVecMatMulFormatSupport(...) and queryCoopVecTrainingFormatSupport(...)
-        // instead; this aggregate may be removed in a future version.
-        // On D3D12 linalg 720+, matMulFormats is not populated; use queryCoopVecMatMulFormatSupport(...)
-        // to query specific combinations.
+        // Returns aggregate CoopVec support information.
+        // Deprecated for new code: use queryCoopVecMatMulFormatSupport(...) and
+        // queryCoopVecTrainingFormatSupport(...) instead.
+        // Some backends may not populate matMulFormats; use queryCoopVecMatMulFormatSupport(...)
+        // to query specific matrix multiplication combinations.
         virtual coopvec::DeviceFeatures queryCoopVecFeatures() = 0;
 
-        // Queries support for thread vector matrix multiply with the given type combination.
+        // Queries support for CoopVec matrix multiplication with the given type combination.
         // combination.transposeSupported is ignored; transpose capability is reported in MatMulFormatSupport.
         virtual coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) = 0;
 
         // Queries training support for the given accumulation component type (typically Float16 or Float32).
-        // See TrainingFormatSupport for details on what each flag means and backend-specific granularity.
+        // See TrainingFormatSupport for details on what each flag means.
         virtual coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(coopvec::DataType componentType) = 0;
 
         // Calculates and returns the on-device size for a CoopVec matrix of the given dimensions, type and layout.

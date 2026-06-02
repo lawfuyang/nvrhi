@@ -73,13 +73,13 @@
 
 // Preview 717 exposes cooperative-vector feature queries (D3D12_FEATURE_COOPERATIVE_VECTOR).
 // Preview 720+ uses the Linear Algebra feature tier and matrix-operation queries when DIRECT3D_LINEAR_ALGEBRA is defined.
-#if (D3D12_PREVIEW_SDK_VERSION == 717) || (defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 721)
+#if (D3D12_PREVIEW_SDK_VERSION == 717) || (defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 720)
 #define NVRHI_D3D12_WITH_COOP_VECTOR_COMMON (1)
 #else
 #define NVRHI_D3D12_WITH_COOP_VECTOR_COMMON (0)
 #endif
 
-#if defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 721
+#if defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 720
 #define NVRHI_D3D12_WITH_LINALG (1)
 #else
 #define NVRHI_D3D12_WITH_LINALG (0)

@@ -771,14 +771,13 @@ namespace nvrhi::d3d12
         return result;
     }
 
-    // Deprecated aggregate query; prefer queryCoopVecMatMulFormatSupport and queryCoopVecTrainingFormatSupport (IDevice).
+    // Deprecated aggregate query. Prefer the per-format CoopVec queries on IDevice.
     coopvec::DeviceFeatures Device::queryCoopVecFeatures()
     {
         coopvec::DeviceFeatures result;
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
 #if NVRHI_D3D12_WITH_LINALG
-        // D3D12 linalg 720+ exposes matrix multiply support through per-combination queries,
-        // so this deprecated aggregate does not populate matMulFormats on this path.
+        // Matrix multiplication support is queried per combination on this path.
         if (!m_LinearAlgebraSupported)
         {
             return result;
@@ -788,7 +787,7 @@ namespace nvrhi::d3d12
 
         result.trainingFloat32 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float32).bufferTrainingSupported;
 #else
-        // Preview 717: D3D12_FEATURE_COOPERATIVE_VECTOR and typed property arrays.
+        // Older D3D12 CoopVec support reports matrix multiplication through a property list.
         D3D12_FEATURE_DATA_COOPERATIVE_VECTOR coopVecData{};
         if (m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR,
             &coopVecData, sizeof(coopVecData)) != S_OK)
@@ -824,11 +823,8 @@ namespace nvrhi::d3d12
         return result;
     }
 
-    // D3D12 linalg (preview 720+): queries via D3D12_FEATURE_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT
-    //   (THREAD_VECTOR_MATRIX_MULTIPLY). inputType is not a concept on this path; only
-    //   inputInterpretation is used (asserted equal to inputType in debug builds).
-    // D3D12 preview 717: scans D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL; both inputType and
-    //   inputInterpretation are matched as independent fields.
+    // Queries the D3D12 matrix multiplication path for a single CoopVec type combination.
+    // On the linalg path, inputType must match inputInterpretation.
     coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
     {
         coopvec::MatMulFormatSupport result{};
@@ -875,7 +871,7 @@ namespace nvrhi::d3d12
         result.emulatedInputs = (flags & D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS) != 0;
         return result;
 #else
-        // Preview 717: scan D3D12_FEATURE_COOPERATIVE_VECTOR matrix-vector mul property list.
+        // Older CoopVec support reports matrix multiplication through a property list.
         if (!m_CoopVecInferencingSupported)
             return result;
 
@@ -922,10 +918,8 @@ namespace nvrhi::d3d12
 #endif // NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
     }
 
-    // D3D12 linalg (preview 720+): queries THREAD_OUTER_PRODUCT and ATOMIC_ACCUMULATE_STORE
-    //   separately via CheckFeatureSupport; UAV and group-shared accumulate are distinguished.
-    // D3D12 preview 717: scans outer-product and vector-accumulate property lists.
-    //   group-shared accumulate is not queryable on this path and remains false.
+    // Queries D3D12 training support for a single accumulation component type.
+    // Older CoopVec support cannot report group-shared accumulate-store separately.
     coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(coopvec::DataType componentType)
     {
         coopvec::TrainingFormatSupport result{};
@@ -969,7 +963,6 @@ namespace nvrhi::d3d12
         if (!m_CoopVecTrainingSupported)
             return result;
 
-        // Preview cooperative-vector property lists (see queryCoopVecFeatures)
         const D3D12_LINEAR_ALGEBRA_DATATYPE accD3d = convertCoopVecDataType(componentType);
 
         D3D12_FEATURE_DATA_COOPERATIVE_VECTOR coopVecData{};
