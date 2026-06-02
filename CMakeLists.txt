@@ -20,7 +20,7 @@
 # DEALINGS IN THE SOFTWARE.
 
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.11)
 
 project(nvrhi VERSION 1.0.0)
 
@@ -44,6 +44,10 @@ cmake_dependent_option(NVRHI_WITH_DX12 "Build the NVRHI D3D12 backend" ON "WIN32
 
 if(NVRHI_WITH_DX12)
     option(NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP "Use D3D12 native Opacity Micromaps from DXR 1.2" OFF)
+    option(NVRHI_FETCH_DIRECTX_HEADERS "Fetch DirectX-Headers when building the D3D12 backend and no external targets are provided" ON)
+    set(NVRHI_DIRECTX_HEADERS_GIT_REPOSITORY "https://github.com/microsoft/DirectX-Headers.git" CACHE STRING "DirectX-Headers git repository used by NVRHI_FETCH_DIRECTX_HEADERS")
+    set(NVRHI_DIRECTX_HEADERS_GIT_TAG "v1.717.0-preview" CACHE STRING "DirectX-Headers git tag or commit used by NVRHI_FETCH_DIRECTX_HEADERS")
+    set(NVRHI_DIRECTX_HEADERS_FETCH_DIR "" CACHE STRING "Source directory for fetched DirectX-Headers; empty uses CMake FetchContent default")
 endif()
 
 if (NVRHI_BUILD_SHARED)
@@ -65,8 +69,54 @@ if (NVRHI_WITH_VULKAN AND NOT TARGET Vulkan-Headers AND NOT TARGET Vulkan::Heade
     add_subdirectory(thirdparty/Vulkan-Headers)
 endif()
 
-if(NVRHI_WITH_DX12 AND NOT TARGET DirectX-Headers AND NOT TARGET Microsoft::DirectX-Headers)
-    add_subdirectory(thirdparty/DirectX-Headers)
+if(NVRHI_WITH_DX12)
+    set(nvrhi_directx_headers_target "")
+    set(nvrhi_directx_guids_target "")
+
+    if(TARGET Microsoft::DirectX-Headers)
+        set(nvrhi_directx_headers_target Microsoft::DirectX-Headers)
+    elseif(TARGET DirectX-Headers)
+        set(nvrhi_directx_headers_target DirectX-Headers)
+    endif()
+
+    if(TARGET Microsoft::DirectX-Guids)
+        set(nvrhi_directx_guids_target Microsoft::DirectX-Guids)
+    elseif(TARGET DirectX-Guids)
+        set(nvrhi_directx_guids_target DirectX-Guids)
+    endif()
+
+    if((NOT nvrhi_directx_headers_target OR NOT nvrhi_directx_guids_target) AND NVRHI_FETCH_DIRECTX_HEADERS)
+        include(FetchContent)
+
+        message(STATUS "Fetching DirectX-Headers from ${NVRHI_DIRECTX_HEADERS_GIT_REPOSITORY}, tag ${NVRHI_DIRECTX_HEADERS_GIT_TAG}")
+
+        if(NVRHI_DIRECTX_HEADERS_FETCH_DIR)
+            FetchContent_Declare(
+                directx_headers
+                GIT_REPOSITORY ${NVRHI_DIRECTX_HEADERS_GIT_REPOSITORY}
+                GIT_TAG ${NVRHI_DIRECTX_HEADERS_GIT_TAG}
+                SOURCE_DIR ${NVRHI_DIRECTX_HEADERS_FETCH_DIR})
+        else()
+            FetchContent_Declare(
+                directx_headers
+                GIT_REPOSITORY ${NVRHI_DIRECTX_HEADERS_GIT_REPOSITORY}
+                GIT_TAG ${NVRHI_DIRECTX_HEADERS_GIT_TAG})
+        endif()
+
+        FetchContent_MakeAvailable(directx_headers)
+
+        if(TARGET Microsoft::DirectX-Headers)
+            set(nvrhi_directx_headers_target Microsoft::DirectX-Headers)
+        endif()
+
+        if(TARGET Microsoft::DirectX-Guids)
+            set(nvrhi_directx_guids_target Microsoft::DirectX-Guids)
+        endif()
+    endif()
+
+    if(NOT nvrhi_directx_headers_target OR NOT nvrhi_directx_guids_target)
+        message(FATAL_ERROR "NVRHI D3D12 requires DirectX-Headers and DirectX-Guids CMake targets. Provide Microsoft::DirectX-Headers and Microsoft::DirectX-Guids, or enable NVRHI_FETCH_DIRECTX_HEADERS.")
+    endif()
 endif()
 
 if (NVRHI_WITH_RTXMU)
@@ -284,7 +334,7 @@ if (NVRHI_WITH_DX12)
 
     target_compile_definitions(${nvrhi_d3d12_target} PRIVATE NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP=$<BOOL:${NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP}>)
 
-    target_link_libraries(${nvrhi_d3d12_target} PUBLIC Microsoft::DirectX-Headers Microsoft::DirectX-Guids d3d12)
+    target_link_libraries(${nvrhi_d3d12_target} PUBLIC ${nvrhi_directx_headers_target} ${nvrhi_directx_guids_target} d3d12)
 
     if (NVRHI_WITH_NVAPI)
         target_link_libraries(${nvrhi_d3d12_target} PUBLIC nvapi)
