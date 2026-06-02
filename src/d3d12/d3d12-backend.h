@@ -1294,6 +1294,8 @@ namespace nvrhi::d3d12
         bool m_ShaderExecutionReorderingSupported = false;
         bool m_SamplerFeedbackSupported = false;
         bool m_AftermathEnabled = false;
+        bool m_RayTracingValidationEnabled = false;
+        void* m_RayTracingValidationCallbackHandle = nullptr;
         bool m_HeapDirectlyIndexedEnabled = false;
         bool m_CoopVecInferencingSupported = false;
         bool m_CoopVecTrainingSupported = false;

@@ -28,6 +28,7 @@
 #include <nvShaderExtnEnums.h>
 #endif
 
+#include <cstdlib>  // for _putenv_s (RT validation env-var gate)
 #include <sstream>
 #include <iomanip>
 
@@ -42,6 +43,33 @@ namespace nvrhi::d3d12
     {
         messageCallback->message(MessageSeverity::Info, message.c_str());
     }
+
+#if NVRHI_D3D12_WITH_NVAPI
+    // Routes NVAPI ray tracing validation messages to the device's IMessageCallback.
+    // May be invoked from an arbitrary driver thread; it only logs and must not touch the device.
+    static void __stdcall raytracingValidationMessageCallback(
+        void* pUserData,
+        NVAPI_D3D12_RAYTRACING_VALIDATION_MESSAGE_SEVERITY severity,
+        const char* messageCode,
+        const char* message,
+        const char* messageDetails)
+    {
+        const Context* context = static_cast<const Context*>(pUserData);
+        if (!context || !context->messageCallback)
+            return;
+
+        std::stringstream ss;
+        ss << "Ray Tracing Validation [" << (messageCode ? messageCode : "") << "] "
+           << (message ? message : "");
+        if (messageDetails && messageDetails[0])
+            ss << "\n" << messageDetails;
+
+        const MessageSeverity ms =
+            (severity == NVAPI_D3D12_RAYTRACING_VALIDATION_MESSAGE_SEVERITY_ERROR)
+            ? MessageSeverity::Error : MessageSeverity::Warning;
+        context->messageCallback->message(ms, ss.str().c_str());
+    }
+#endif
 
     void WaitForFence(ID3D12Fence* fence, uint64_t value, HANDLE event)
     {
@@ -190,6 +218,42 @@ namespace nvrhi::d3d12
 
         if (m_NvapiIsInitialized)
         {
+            // Ray tracing validation must be enabled before any other ray tracing call on the
+            // device (including the capability queries below), otherwise it fails with NVAPI_INVALID_CALL.
+            if (desc.enableRayTracingValidation && m_Context.device5)
+            {
+                // NVAPI gates validation on NV_ALLOW_RAYTRACING_VALIDATION=1. Set it just-in-time
+                // so callers don't need to export the env var before launching — _putenv_s mutates
+                // both the CRT environment and the Win32 process env block, which is what NVAPI
+                // queries. Only fires when validation was explicitly requested via desc.
+                _putenv_s("NV_ALLOW_RAYTRACING_VALIDATION", "1");
+
+                NvAPI_Status rtvStatus = NvAPI_D3D12_EnableRaytracingValidation(
+                    m_Context.device5, NVAPI_D3D12_RAYTRACING_VALIDATION_FLAG_NONE);
+                if (rtvStatus == NVAPI_OK)
+                {
+                    NvAPI_Status regStatus = NvAPI_D3D12_RegisterRaytracingValidationMessageCallback(
+                        m_Context.device5, &raytracingValidationMessageCallback, &m_Context, &m_RayTracingValidationCallbackHandle);
+                    if (regStatus == NVAPI_OK)
+                    {
+                        m_RayTracingValidationEnabled = true;
+                        m_Context.info("NVAPI ray tracing validation enabled");
+                    }
+                    else
+                    {
+                        m_Context.error("NvAPI_D3D12_RegisterRaytracingValidationMessageCallback failed with NvAPI_Status " + std::to_string(regStatus));
+                    }
+                }
+                else if (rtvStatus == NVAPI_ACCESS_DENIED)
+                {
+                    m_Context.error("NvAPI_D3D12_EnableRaytracingValidation denied: set the NV_ALLOW_RAYTRACING_VALIDATION=1 environment variable (and restart) to allow ray tracing validation.");
+                }
+                else
+                {
+                    m_Context.error("NvAPI_D3D12_EnableRaytracingValidation failed with NvAPI_Status " + std::to_string(rtvStatus));
+                }
+            }
+
             NV_QUERY_SINGLE_PASS_STEREO_SUPPORT_PARAMS stereoParams{};
             stereoParams.version = NV_QUERY_SINGLE_PASS_STEREO_SUPPORT_PARAMS_VER;
 
@@ -314,6 +378,16 @@ namespace nvrhi::d3d12
     {
         waitForIdle();
 
+#if NVRHI_D3D12_WITH_NVAPI
+        if (m_RayTracingValidationEnabled)
+        {
+            // waitForIdle() already flushed; unregister now that no GPU work can produce more messages.
+            NvAPI_D3D12_UnregisterRaytracingValidationMessageCallback(m_Context.device5, m_RayTracingValidationCallbackHandle);
+            m_RayTracingValidationEnabled = false;
+            m_RayTracingValidationCallbackHandle = nullptr;
+        }
+#endif
+
         if (m_FenceEvent)
         {
             CloseHandle(m_FenceEvent);
@@ -334,6 +408,14 @@ namespace nvrhi::d3d12
                 WaitForFence(pQueue->fence, pQueue->lastSubmittedInstance, m_FenceEvent);
             }
         }
+
+#if NVRHI_D3D12_WITH_NVAPI
+        // Report ray tracing validation messages for the GPU work that just completed. Doing this
+        // after the fence waits also lets messages drain even when the device is being removed.
+        if (m_RayTracingValidationEnabled)
+            NvAPI_D3D12_FlushRaytracingValidationMessages(m_Context.device5);
+#endif
+
         return true;
     }
     
@@ -598,6 +680,13 @@ namespace nvrhi::d3d12
                 }
             }
         }
+
+#if NVRHI_D3D12_WITH_NVAPI
+        // Drain ray tracing validation messages for GPU work that has completed since the last call.
+        // runGarbageCollection() runs once per frame, giving per-frame message granularity.
+        if (m_RayTracingValidationEnabled)
+            NvAPI_D3D12_FlushRaytracingValidationMessages(m_Context.device5);
+#endif
     }
 
     bool Device::queryFeatureSupport(Feature feature, void* pInfo, size_t infoSize)
