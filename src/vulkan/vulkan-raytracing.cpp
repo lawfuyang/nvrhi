@@ -1650,15 +1650,22 @@ namespace nvrhi::vulkan
             .setAllowClusterAccelerationStructure(true);
 
         auto pipelineFlags2 = vk::PipelineCreateFlags2CreateInfoKHR();
-        pipelineFlags2.setFlags(vk::PipelineCreateFlagBits2::eRayTracingAllowSpheresAndLinearSweptSpheresNV);
+        if (m_Context.extensions.NV_ray_tracing_linear_swept_spheres)
+        {
+            pipelineFlags2.setFlags(vk::PipelineCreateFlagBits2::eRayTracingAllowSpheresAndLinearSweptSpheresNV);
+        }
 
         auto pipelineInfo = vk::RayTracingPipelineCreateInfoKHR()
             .setStages(shaderStages)
             .setGroups(shaderGroups)
             .setLayout(pso->pipelineLayout)
             .setMaxPipelineRayRecursionDepth(desc.maxRecursionDepth)
-            .setPLibraryInfo(&libraryInfo)
-            .setPNext(&pipelineFlags2);
+            .setPLibraryInfo(&libraryInfo);
+
+        if (m_Context.extensions.NV_ray_tracing_linear_swept_spheres)
+        {
+            pipelineInfo.setPNext(&pipelineFlags2);
+        }
 
         if (m_Context.extensions.NV_cluster_acceleration_structure)
         {
