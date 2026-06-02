@@ -42,6 +42,13 @@ cmake_dependent_option(NVRHI_WITH_NVAPI "Include NVAPI support (requires NVAPI S
 cmake_dependent_option(NVRHI_WITH_DX11 "Build the NVRHI D3D11 backend" ON "WIN32" OFF)
 cmake_dependent_option(NVRHI_WITH_DX12 "Build the NVRHI D3D12 backend" ON "WIN32" OFF)
 
+if(NVRHI_WITH_VULKAN)
+    option(NVRHI_FETCH_VULKAN_HEADERS "Fetch Vulkan-Headers when building the Vulkan backend and no external targets are provided" ON)
+    set(NVRHI_VULKAN_HEADERS_GIT_REPOSITORY "https://github.com/KhronosGroup/Vulkan-Headers.git" CACHE STRING "Vulkan-Headers git repository used by NVRHI_FETCH_VULKAN_HEADERS")
+    set(NVRHI_VULKAN_HEADERS_GIT_TAG "v1.4.352" CACHE STRING "Vulkan-Headers git tag or commit used by NVRHI_FETCH_VULKAN_HEADERS")
+    set(NVRHI_VULKAN_HEADERS_FETCH_DIR "" CACHE STRING "Source directory for fetched Vulkan-Headers; empty uses CMake FetchContent default")
+endif()
+
 if(NVRHI_WITH_DX12)
     option(NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP "Use D3D12 native Opacity Micromaps from DXR 1.2" OFF)
     option(NVRHI_FETCH_DIRECTX_HEADERS "Fetch DirectX-Headers when building the D3D12 backend and no external targets are provided" ON)
@@ -65,8 +72,45 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-if (NVRHI_WITH_VULKAN AND NOT TARGET Vulkan-Headers AND NOT TARGET Vulkan::Headers)
-    add_subdirectory(thirdparty/Vulkan-Headers)
+if(NVRHI_WITH_VULKAN)
+    set(nvrhi_vulkan_headers_target "")
+
+    if(TARGET Vulkan::Headers)
+        set(nvrhi_vulkan_headers_target Vulkan::Headers)
+    elseif(TARGET Vulkan-Headers)
+        set(nvrhi_vulkan_headers_target Vulkan-Headers)
+    endif()
+
+    if((NOT nvrhi_vulkan_headers_target) AND NVRHI_FETCH_VULKAN_HEADERS)
+        include(FetchContent)
+
+        message(STATUS "Fetching Vulkan-Headers from ${NVRHI_VULKAN_HEADERS_GIT_REPOSITORY}, tag ${NVRHI_VULKAN_HEADERS_GIT_TAG}")
+
+        if(NVRHI_VULKAN_HEADERS_FETCH_DIR)
+            FetchContent_Declare(
+                vulkan_headers
+                GIT_REPOSITORY ${NVRHI_VULKAN_HEADERS_GIT_REPOSITORY}
+                GIT_TAG ${NVRHI_VULKAN_HEADERS_GIT_TAG}
+                SOURCE_DIR ${NVRHI_VULKAN_HEADERS_FETCH_DIR})
+        else()
+            FetchContent_Declare(
+                vulkan_headers
+                GIT_REPOSITORY ${NVRHI_VULKAN_HEADERS_GIT_REPOSITORY}
+                GIT_TAG ${NVRHI_VULKAN_HEADERS_GIT_TAG})
+        endif()
+
+        FetchContent_MakeAvailable(vulkan_headers)
+
+        if(TARGET Vulkan::Headers)
+            set(nvrhi_vulkan_headers_target Vulkan::Headers)
+        elseif(TARGET Vulkan-Headers)
+            set(nvrhi_vulkan_headers_target Vulkan-Headers)
+        endif()
+    endif()
+
+    if(NOT nvrhi_vulkan_headers_target)
+        message(FATAL_ERROR "NVRHI Vulkan backend requires Vulkan-Headers CMake target (Vulkan::Headers or Vulkan-Headers), or enable NVRHI_FETCH_VULKAN_HEADERS.")
+    endif()
 endif()
 
 if(NVRHI_WITH_DX12)
@@ -120,12 +164,8 @@ if(NVRHI_WITH_DX12)
 endif()
 
 if (NVRHI_WITH_RTXMU)
-    if (TARGET Vulkan-Headers)
-        get_target_property(RTXMU_VULKAN_INCLUDE_DIR Vulkan-Headers INTERFACE_INCLUDE_DIRECTORIES)
-    elseif (TARGET Vulkan::Headers)
-        get_target_property(RTXMU_VULKAN_INCLUDE_DIR Vulkan::Headers INTERFACE_INCLUDE_DIRECTORIES)
-    endif()
-
+    get_target_property(RTXMU_VULKAN_INCLUDE_DIR ${nvrhi_vulkan_headers_target} INTERFACE_INCLUDE_DIRECTORIES)
+    
     option(RTXMU_WITH_VULKAN "" ${NVRHI_WITH_VULKAN})
     option(RTXMU_WITH_D3D12 "" ${NVRHI_WITH_DX12})
 
@@ -375,11 +415,7 @@ if (NVRHI_WITH_VULKAN)
         target_link_libraries(${nvrhi_vulkan_target} PUBLIC rtxmu)
     endif()
 
-    if (TARGET Vulkan-Headers)
-        target_link_libraries(${nvrhi_vulkan_target} PRIVATE Vulkan-Headers)
-    elseif (TARGET Vulkan::Headers)
-        target_link_libraries(${nvrhi_vulkan_target} PRIVATE Vulkan::Headers)
-    endif()
+    target_link_libraries(${nvrhi_vulkan_target} PRIVATE ${nvrhi_vulkan_headers_target})
 
     if (NVRHI_WITH_AFTERMATH)
         target_link_libraries(${nvrhi_vulkan_target} PUBLIC aftermath)
