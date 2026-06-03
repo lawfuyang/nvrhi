@@ -128,6 +128,13 @@ namespace nvrhi::d3d12
         // Enable logging the buffer lifetime to IMessageCallback
         // Useful for debugging resource lifetimes
         bool logBufferLifetime = false;
+
+        // Enable NVAPI ray tracing validation (NvAPI_D3D12_EnableRaytracingValidation).
+        // Requires NVAPI. The nvrhi::Device constructor sets the NV_ALLOW_RAYTRACING_VALIDATION=1
+        // environment variable automatically, so callers don't need to export it beforehand.
+        // Validation must be enabled before any other ray tracing call (including capability
+        // queries).
+        bool enableRayTracingValidation = false;
     };
 
     NVRHI_API DeviceHandle createDevice(const DeviceDesc& desc);
