@@ -57,6 +57,12 @@ if(NVRHI_WITH_DX12)
     set(NVRHI_DIRECTX_HEADERS_FETCH_DIR "" CACHE STRING "Source directory for fetched DirectX-Headers; empty uses CMake FetchContent default")
 endif()
 
+if(NVRHI_WITH_RTXMU)
+    set(NVRHI_RTXMU_GIT_REPOSITORY "https://github.com/NVIDIA-RTX/RTXMU.git" CACHE STRING "RTXMU git repository")
+    set(NVRHI_RTXMU_GIT_TAG "v1.4" CACHE STRING "RTXMU git tag or commit")
+    set(NVRHI_RTXMU_FETCH_DIR "" CACHE STRING "Source directory for fetched RTXMU; empty uses CMake FetchContent default")
+endif()
+
 if (NVRHI_BUILD_SHARED)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
@@ -169,7 +175,22 @@ if (NVRHI_WITH_RTXMU)
     option(RTXMU_WITH_VULKAN "" ${NVRHI_WITH_VULKAN})
     option(RTXMU_WITH_D3D12 "" ${NVRHI_WITH_DX12})
 
-    add_subdirectory(rtxmu)
+    message(STATUS "Fetching RTXMU from ${NVRHI_RTXMU_GIT_REPOSITORY}, tag ${NVRHI_RTXMU_GIT_TAG}")
+
+    if(NVRHI_RTXMU_FETCH_DIR)
+        FetchContent_Declare(
+            rtxmu
+            GIT_REPOSITORY ${NVRHI_RTXMU_GIT_REPOSITORY}
+            GIT_TAG ${NVRHI_RTXMU_GIT_TAG}
+            SOURCE_DIR ${NVRHI_RTXMU_FETCH_DIR})
+    else()
+        FetchContent_Declare(
+            rtxmu
+            GIT_REPOSITORY ${NVRHI_RTXMU_GIT_REPOSITORY}
+            GIT_TAG ${NVRHI_RTXMU_GIT_TAG})
+    endif()
+
+    FetchContent_MakeAvailable(rtxmu)
 endif()
 
 if (NVRHI_WITH_NVAPI AND NOT TARGET nvapi)
