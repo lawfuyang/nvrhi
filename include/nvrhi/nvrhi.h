@@ -64,7 +64,7 @@ namespace nvrhi
 {
     // Version of the public API provided by NVRHI.
     // Increment this when any changes to the API are made.
-    static constexpr uint32_t c_HeaderVersion = 23;
+    static constexpr uint32_t c_HeaderVersion = 24;
 
     // Verifies that the version of the implementation matches the version of the header.
     // Returns true if they match. Use this when initializing apps using NVRHI as a shared library.
@@ -2938,11 +2938,10 @@ namespace nvrhi
             TrainingOptimal
         };
 
-        // Describes a combination of input and output data types for matrix multiplication with Cooperative Vectors.
-        // - DX12: Maps from D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL.
-        // - Vulkan: Maps from VkCooperativeVectorPropertiesNV.
+        // Describes a combination of input and output data types for CoopVec matrix multiplication.
         struct MatMulFormatCombo
         {
+            // Raw storage element type. May differ from inputInterpretation for packed or interpreted formats.
             DataType inputType;
             DataType inputInterpretation;
             DataType matrixInterpretation;
@@ -2951,19 +2950,37 @@ namespace nvrhi
             bool transposeSupported;
         };
 
+        // Result of queryCoopVecMatMulFormatSupport.
+        struct MatMulFormatSupport
+        {
+            bool supported = false;
+            bool transposeSupported = false;
+            bool emulatedInputs = false;
+        };
+
+        // Result of queryCoopVecTrainingFormatSupport.
+        struct TrainingFormatSupport
+        {
+            // True if the backend supports a complete buffer training path for the queried accumulation type.
+            bool bufferTrainingSupported = false;
+
+            bool threadOuterProductSupported = false;
+            bool bufferAccumulateStoreSupported = false;
+            bool groupSharedAccumulateStoreSupported = false;
+        };
+
+        // Deprecated aggregate CoopVec support information.
+        // New code should use queryCoopVecMatMulFormatSupport(...) and
+        // queryCoopVecTrainingFormatSupport(...) instead.
         struct DeviceFeatures
         {
-            // Format combinations supported by the device for matrix multiplication with Cooperative Vectors.
+            // Format combinations supported by the device for CoopVec matrix multiplication.
             std::vector<MatMulFormatCombo> matMulFormats;
 
-            // - DX12: True if FLOAT16 is supported as accumulation format for both outer product accumulation
-            //         and vector accumulation.
-            // - Vulkan: True if cooperativeVectorTrainingFloat16Accumulation is supported.
+            // True if the backend supports a complete buffer training path for Float16 accumulation.
             bool trainingFloat16 = false;
 
-            // - DX12: True if FLOAT32 is supported as accumulation format for both outer product accumulation
-            //         and vector accumulation.
-            // - Vulkan: True if cooperativeVectorTrainingFloat32Accumulation is supported.
+            // True if the backend supports a complete buffer training path for Float32 accumulation.
             bool trainingFloat32 = false;
         };
 
@@ -3721,8 +3738,20 @@ namespace nvrhi
 
         virtual FormatSupport queryFormatSupport(Format format) = 0;
 
-        // Returns a list of supported CoopVec matrix multiplication formats and accumulation capabilities.
+        // Returns aggregate CoopVec support information.
+        // Deprecated for new code: use queryCoopVecMatMulFormatSupport(...) and
+        // queryCoopVecTrainingFormatSupport(...) instead.
+        // Some backends may not populate matMulFormats; use queryCoopVecMatMulFormatSupport(...)
+        // to query specific matrix multiplication combinations.
         virtual coopvec::DeviceFeatures queryCoopVecFeatures() = 0;
+
+        // Queries support for CoopVec matrix multiplication with the given type combination.
+        // combination.transposeSupported is ignored; transpose capability is reported in MatMulFormatSupport.
+        virtual coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) = 0;
+
+        // Queries training support for the given accumulation component type (typically Float16 or Float32).
+        // See TrainingFormatSupport for details on what each flag means.
+        virtual coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(coopvec::DataType componentType) = 0;
 
         // Calculates and returns the on-device size for a CoopVec matrix of the given dimensions, type and layout.
         virtual size_t getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns) = 0;

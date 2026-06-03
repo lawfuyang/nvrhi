@@ -147,7 +147,7 @@ namespace nvrhi::vulkan
  
     void CommandList::convertCoopVecMatrices(coopvec::ConvertMatrixLayoutDesc const* convertDescs, size_t numDescs)
     {
-        if (!m_Context.extensions.NV_cooperative_vector)
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVector)
             return;
 
         if (numDescs == 0)

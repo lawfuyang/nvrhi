@@ -104,7 +104,7 @@ namespace nvrhi::d3d12
 
         commandList->commandList->QueryInterface(IID_PPV_ARGS(&commandList->commandList4));
         commandList->commandList->QueryInterface(IID_PPV_ARGS(&commandList->commandList6));
-#if NVRHI_D3D12_WITH_COOPVEC
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
         commandList->commandList->QueryInterface(IID_PPV_ARGS(&commandList->commandListPreview));
 #endif
 
@@ -370,7 +370,7 @@ namespace nvrhi::d3d12
 
     void CommandList::convertCoopVecMatrices(coopvec::ConvertMatrixLayoutDesc const* convertDescs, size_t numDescs)
     {
-#if NVRHI_D3D12_WITH_COOPVEC
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
         if (numDescs == 0)
             return;
             

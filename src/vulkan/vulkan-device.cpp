@@ -479,25 +479,38 @@ namespace nvrhi::vulkan
         return result;
     }
 
+    void Device::getCoopVecMatMulProperties() const
+    {
+        if (m_CoopVecMatMulPropertiesPopulated)
+            return;
+        m_CoopVecMatMulPropertiesPopulated = true;
+
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVector)
+            return;
+
+        uint32_t propertyCount = 0;
+        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(
+                &propertyCount, nullptr) != vk::Result::eSuccess || propertyCount == 0)
+            return;
+
+        m_CoopVecMatMulProperties.resize(propertyCount);
+        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(
+                &propertyCount, m_CoopVecMatMulProperties.data()) != vk::Result::eSuccess)
+            m_CoopVecMatMulProperties.clear();
+    }
+
+    // Deprecated aggregate query. Prefer the per-format CoopVec queries on IDevice.
     coopvec::DeviceFeatures Device::queryCoopVecFeatures()
     {
         coopvec::DeviceFeatures result;
 
-        if (!m_Context.extensions.NV_cooperative_vector)
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVector)
             return result;
 
-        uint32_t propertyCount = 0;
-        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(&propertyCount, nullptr) != vk::Result::eSuccess)
-            return result;
-        if (propertyCount == 0)
-            return result;
+        getCoopVecMatMulProperties();
 
-        std::vector<vk::CooperativeVectorPropertiesNV> properties(propertyCount);
-        if (m_Context.physicalDevice.getCooperativeVectorPropertiesNV(&propertyCount, properties.data()) != vk::Result::eSuccess)
-            return result;
-        
-        result.matMulFormats.reserve(propertyCount);
-        for (vk::CooperativeVectorPropertiesNV const& prop : properties)
+        result.matMulFormats.reserve(m_CoopVecMatMulProperties.size());
+        for (const vk::CooperativeVectorPropertiesNV& prop : m_CoopVecMatMulProperties)
         {
             coopvec::MatMulFormatCombo& combo = result.matMulFormats.emplace_back();
             combo.inputType = convertCoopVecDataType(prop.inputType);
@@ -508,15 +521,76 @@ namespace nvrhi::vulkan
             combo.transposeSupported = !!prop.transpose;
         }
 
-        result.trainingFloat16 = m_Context.coopVecProperties.cooperativeVectorTrainingFloat16Accumulation;
-        result.trainingFloat32 = m_Context.coopVecProperties.cooperativeVectorTrainingFloat32Accumulation;
+        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float16).bufferTrainingSupported;
+        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float32).bufferTrainingSupported;
+
+        return result;
+    }
+
+    // Matches the requested type combination against the cached CoopVec property list.
+    coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
+    {
+        coopvec::MatMulFormatSupport result{};
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVector)
+            return result;
+
+        getCoopVecMatMulProperties();
+
+        const vk::ComponentTypeKHR inputType = convertCoopVecDataType(combination.inputType);
+        const vk::ComponentTypeKHR inputInterpretation = convertCoopVecDataType(combination.inputInterpretation);
+        const vk::ComponentTypeKHR matrixInterpretation = convertCoopVecDataType(combination.matrixInterpretation);
+        const vk::ComponentTypeKHR biasInterpretation = convertCoopVecDataType(combination.biasInterpretation);
+        const vk::ComponentTypeKHR resultType = convertCoopVecDataType(combination.outputType);
+
+        for (const vk::CooperativeVectorPropertiesNV& prop : m_CoopVecMatMulProperties)
+        {
+            if (prop.inputType == inputType &&
+                prop.inputInterpretation == inputInterpretation &&
+                prop.matrixInterpretation == matrixInterpretation &&
+                prop.biasInterpretation == biasInterpretation &&
+                prop.resultType == resultType)
+            {
+                result.supported = true;
+                result.transposeSupported = prop.transpose != VK_FALSE;
+                return result;
+            }
+        }
+
+        return result;
+    }
+
+    // Vulkan reports one training accumulation flag per precision.
+    // It does not distinguish buffer and group-shared accumulate-store support.
+    coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(coopvec::DataType componentType)
+    {
+        coopvec::TrainingFormatSupport result{};
+
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVectorTraining)
+            return result;
+
+        const auto& props = m_Context.coopVecProperties;
+
+        vk::Bool32 vkTrainingAccumulationSupported = vk::False;
+        if (componentType == coopvec::DataType::Float16)
+            vkTrainingAccumulationSupported = props.cooperativeVectorTrainingFloat16Accumulation;
+        else if (componentType == coopvec::DataType::Float32)
+            vkTrainingAccumulationSupported = props.cooperativeVectorTrainingFloat32Accumulation;
+        else
+            return result;
+
+        const bool trainingAccumulationSupported = (vkTrainingAccumulationSupported != vk::False);
+
+        // Mirror the aggregate Vulkan flag into the buffer-training details.
+        result.threadOuterProductSupported = trainingAccumulationSupported;
+        result.bufferAccumulateStoreSupported = trainingAccumulationSupported;
+        result.bufferTrainingSupported = result.threadOuterProductSupported && result.bufferAccumulateStoreSupported;
 
         return result;
     }
 
     size_t Device::getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns)
     {
-        if (!m_Context.extensions.NV_cooperative_vector)
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVector)
             return 0;
 
         size_t dstSize = 0;
