@@ -316,7 +316,7 @@ namespace nvrhi::d3d12
         void createUAV(size_t descriptor, Format format, TextureDimension dimension, TextureSubresourceSet subresources) const;
         void createRTV(size_t descriptor, Format format, TextureSubresourceSet subresources) const;
         void createDSV(size_t descriptor, TextureSubresourceSet subresources, bool isReadOnly = false) const;
-        DescriptorIndex getClearMipLevelUAV(uint32_t mipLevel);
+        DescriptorIndex getClearMipLevelUAV(uint32_t mipLevel, Format interpretFormat);
 
     private:
         const Context& m_Context;
@@ -1028,6 +1028,7 @@ namespace nvrhi::d3d12
         void buildOpacityMicromap(rt::IOpacityMicromap* omm, const rt::OpacityMicromapDesc& desc) override;
         void buildBottomLevelAccelStruct(rt::IAccelStruct* as, const rt::GeometryDesc* pGeometries, size_t numGeometries, rt::AccelStructBuildFlags buildFlags) override;
         void compactBottomLevelAccelStructs() override;
+        void copyRaytracingAccelerationStructure(rt::IAccelStruct* destination, rt::IAccelStruct* source) override;
         void buildTopLevelAccelStruct(rt::IAccelStruct* as, const rt::InstanceDesc* pInstances, size_t numInstances, rt::AccelStructBuildFlags buildFlags) override;
         void buildTopLevelAccelStructFromBuffer(rt::IAccelStruct* as, nvrhi::IBuffer* instanceBuffer, uint64_t instanceBufferOffset, size_t numInstances,
             rt::AccelStructBuildFlags buildFlags = rt::AccelStructBuildFlags::None) override;
