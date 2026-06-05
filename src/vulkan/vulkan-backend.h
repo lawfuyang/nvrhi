@@ -221,6 +221,25 @@ namespace nvrhi::vulkan
 
     typedef std::shared_ptr<TrackedCommandBuffer> TrackedCommandBufferPtr;
 
+    class Queue;
+    class CommandListLifetimeTracker final : public RefCounter<ICommandListLifetimeTracker>
+    {
+    public:
+        CommandListLifetimeTracker(const VulkanContext& context, Queue* queue);
+
+        // ICommandListTracker implementation
+        virtual void runGarbageCollection() override;
+
+        // Vulkan specific methods
+        void push(TrackedCommandBufferPtr commandBuffer);
+        Queue* getQueue() const { return m_Queue; }
+
+    private:
+        const VulkanContext& m_Context;
+        Queue* m_Queue;
+        std::list<TrackedCommandBufferPtr> m_CommandBuffersInFlight;
+    };
+
     // represents a hardware queue
     class Queue
     {
@@ -244,9 +263,7 @@ namespace nvrhi::vulkan
         void updateTextureTileMappings(ITexture* texture, const TextureTilesMapping* tileMappings, uint32_t numTileMappings);
 
         // retire any command buffers that have finished execution from the pending execution list
-        void retireCommandBuffers();
-
-        TrackedCommandBufferPtr getCommandBufferInFlight(uint64_t submissionID);
+        void runGarbageCollection();
 
         uint64_t updateLastFinishedID();
         uint64_t getLastSubmittedID() const { return m_LastSubmittedID; }
@@ -275,8 +292,11 @@ namespace nvrhi::vulkan
         uint64_t m_LastFinishedID = 0;
 
         // tracks the list of command buffers in flight on this queue
-        std::list<TrackedCommandBufferPtr> m_CommandBuffersInFlight;
         std::list<TrackedCommandBufferPtr> m_CommandBuffersPool;
+        CommandListLifetimeTracker m_LifetimeTracker;
+
+        friend class CommandListLifetimeTracker;
+        void returnCommandBuffersToPool(std::list<TrackedCommandBufferPtr> const& commandBuffers);
     };
 
     class MemoryResource

@@ -37,6 +37,7 @@ namespace nvrhi::vulkan
         , m_Queue(queue)
         , m_QueueID(queueID)
         , m_QueueFamilyIndex(queueFamilyIndex)
+        , m_LifetimeTracker(context, this)
     {
         auto semaphoreTypeInfo = vk::SemaphoreTypeCreateInfo()
             .setSemaphoreType(vk::SemaphoreType::eTimeline);
@@ -120,6 +121,13 @@ namespace nvrhi::vulkan
 
     uint64_t Queue::submit(ICommandList* const* ppCmd, size_t numCmd)
     {
+        // We want submit() to be free-threaded, but it accesses various members like m_WaitSemaphores,
+        // so use a mutex for synchronization.
+        // Note that these semaphore lists are persistent state of Queue, so vulkan::IDevice's methods
+        // queueWaitForSemaphore and queueSignalSemaphore will not work well with multi-threaded command list
+        // submission to the same queue.
+        std::lock_guard lockGuard(m_Mutex);
+        
         std::vector<vk::PipelineStageFlags> waitStageArray(m_WaitSemaphores.size());
         std::vector<vk::CommandBuffer> commandBuffers(numCmd);
 
@@ -136,7 +144,22 @@ namespace nvrhi::vulkan
             TrackedCommandBufferPtr commandBuffer = commandList->getCurrentCmdBuf();
 
             commandBuffers[i] = commandBuffer->cmdBuf;
-            m_CommandBuffersInFlight.push_back(commandBuffer);
+
+            // If the command list provides a custom lifetime tracker, use that.
+            // Otherwise, use our own tracker.
+            CommandListLifetimeTracker* lifetimeTracker = checked_cast<CommandListLifetimeTracker*>(
+                commandList->getDesc().lifetimeTracker);
+
+            if (lifetimeTracker)
+            {
+                assert(lifetimeTracker->getQueue() == this);
+            }
+            else
+            {
+                lifetimeTracker = &m_LifetimeTracker;
+            }
+
+            lifetimeTracker->push(commandBuffer);
 
             for (const auto& buffer : commandBuffer->referencedStagingBuffers)
             {
@@ -291,20 +314,41 @@ namespace nvrhi::vulkan
         return m_LastFinishedID;
     }
 
-    void Queue::retireCommandBuffers()
+    void Queue::runGarbageCollection()
     {
-        std::list<TrackedCommandBufferPtr> submissions = std::move(m_CommandBuffersInFlight);
+        m_LifetimeTracker.runGarbageCollection();
+    }
 
-        uint64_t lastFinishedID = updateLastFinishedID();
-        
-        for (const TrackedCommandBufferPtr& cmd : submissions)
+    void Queue::returnCommandBuffersToPool(std::list<TrackedCommandBufferPtr> const& commandBuffers)
+    {
+        std::lock_guard lockGuard(m_Mutex);
+
+        m_CommandBuffersPool.insert(m_CommandBuffersPool.end(), commandBuffers.begin(), commandBuffers.end());
+    }
+
+    CommandListLifetimeTracker::CommandListLifetimeTracker(const VulkanContext& context, Queue* queue)
+	    : m_Context(context)
+		, m_Queue(queue)
+    {
+        assert(m_Queue);
+    }
+
+    void CommandListLifetimeTracker::runGarbageCollection()
+    {
+        std::list<TrackedCommandBufferPtr> releasedCmdBufs;
+
+        uint64_t lastFinishedID = m_Queue->updateLastFinishedID();
+
+        auto it = m_CommandBuffersInFlight.begin();
+        for (; it != m_CommandBuffersInFlight.end(); ++it)
         {
+            TrackedCommandBufferPtr const& cmd = *it;
             if (cmd->submissionID <= lastFinishedID)
             {
                 cmd->referencedResources.clear();
                 cmd->referencedStagingBuffers.clear();
                 cmd->submissionID = 0;
-                m_CommandBuffersPool.push_back(cmd);
+                releasedCmdBufs.push_back(cmd);
 
 #ifdef NVRHI_WITH_RTXMU
                 if (!cmd->rtxmuBuildIds.empty())
@@ -325,20 +369,20 @@ namespace nvrhi::vulkan
             }
             else
             {
-                m_CommandBuffersInFlight.push_back(cmd);
+                break;
             }
+        }
+
+        if (it != m_CommandBuffersInFlight.begin())
+        {
+            m_CommandBuffersInFlight.erase(m_CommandBuffersInFlight.begin(), it);
+            m_Queue->returnCommandBuffersToPool(releasedCmdBufs);
         }
     }
 
-    TrackedCommandBufferPtr Queue::getCommandBufferInFlight(uint64_t submissionID)
+    void CommandListLifetimeTracker::push(TrackedCommandBufferPtr commandBuffer)
     {
-        for (const TrackedCommandBufferPtr& cmd : m_CommandBuffersInFlight)
-        {
-            if (cmd->submissionID == submissionID)
-                return cmd;
-        }
-
-        return nullptr;
+        m_CommandBuffersInFlight.push_back(commandBuffer);
     }
 
     VkSemaphore Device::getQueueSemaphore(CommandQueue queueID)
