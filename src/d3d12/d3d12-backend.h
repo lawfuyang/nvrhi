@@ -65,17 +65,28 @@
 #endif
 
 // Line-Swept Spheres were added in NVAPI SDK 572.18
-#if NVRHI_D3D12_WITH_NVAPI && (NVAPI_SDK_VERSION >= 57218)
+#if NVRHI_D3D12_WITH_NVAPI && !NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP && (NVAPI_SDK_VERSION >= 57218)
 #define NVRHI_WITH_NVAPI_LSS (1)
 #else
 #define NVRHI_WITH_NVAPI_LSS (0)
 #endif
 
-#if D3D12_PREVIEW_SDK_VERSION >= 717
-#define NVRHI_D3D12_WITH_COOPVEC (1)
+// Preview 717 exposes cooperative-vector feature queries (D3D12_FEATURE_COOPERATIVE_VECTOR).
+// Preview 720+ uses the Linear Algebra feature tier and matrix-operation queries when DIRECT3D_LINEAR_ALGEBRA is defined.
+#if (D3D12_PREVIEW_SDK_VERSION == 717) || (defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 720)
+#define NVRHI_D3D12_WITH_COOP_VECTOR_COMMON (1)
 #else
-#define NVRHI_D3D12_WITH_COOPVEC (0)
+#define NVRHI_D3D12_WITH_COOP_VECTOR_COMMON (0)
 #endif
+
+#if defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 720
+#define NVRHI_D3D12_WITH_LINALG (1)
+#else
+#define NVRHI_D3D12_WITH_LINALG (0)
+#endif
+
+// Deprecated: downstream code should use NVRHI_D3D12_WITH_COOP_VECTOR_COMMON; alias will be removed after a deprecation window.
+#define NVRHI_D3D12_WITH_COOPVEC NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
 
 #include <bitset>
 #include <memory>
@@ -120,7 +131,7 @@ namespace nvrhi::d3d12
     UINT convertSamplerReductionType(SamplerReductionType reductionType);
     D3D12_SHADING_RATE convertPixelShadingRate(VariableShadingRate shadingRate);
     D3D12_SHADING_RATE_COMBINER convertShadingRateCombiner(ShadingRateCombiner combiner);
-#if NVRHI_D3D12_WITH_COOPVEC
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
     D3D12_LINEAR_ALGEBRA_DATATYPE convertCoopVecDataType(coopvec::DataType type);
     coopvec::DataType convertCoopVecDataType(D3D12_LINEAR_ALGEBRA_DATATYPE type);
     D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT convertCoopVecMatrixLayout(coopvec::MatrixLayout layout);
@@ -138,7 +149,7 @@ namespace nvrhi::d3d12
         RefCountPtr<ID3D12Device2> device2;
         RefCountPtr<ID3D12Device5> device5;
         RefCountPtr<ID3D12Device8> device8;
-#if NVRHI_D3D12_WITH_COOPVEC
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
         RefCountPtr<ID3D12DevicePreview> devicePreview;
 #endif
 #ifdef NVRHI_WITH_RTXMU
@@ -148,6 +159,7 @@ namespace nvrhi::d3d12
         RefCountPtr<ID3D12CommandSignature> drawIndirectSignature;
         RefCountPtr<ID3D12CommandSignature> drawIndexedIndirectSignature;
         RefCountPtr<ID3D12CommandSignature> dispatchIndirectSignature;
+        RefCountPtr<ID3D12CommandSignature> dispatchMeshIndirectSignature;
         RefCountPtr<ID3D12QueryHeap> timerQueryHeap;
         RefCountPtr<Buffer> timerQueryResolveBuffer;
 
@@ -180,6 +192,7 @@ namespace nvrhi::d3d12
 
         HRESULT allocateResources(D3D12_DESCRIPTOR_HEAP_TYPE heapType, uint32_t numDescriptors, bool shaderVisible);
         void copyToShaderVisibleHeap(DescriptorIndex index, uint32_t count = 1);
+        D3D12_DESCRIPTOR_HEAP_TYPE getHeapType() const { return m_HeapType; }
         
         DescriptorIndex allocateDescriptors(uint32_t count) override;
         DescriptorIndex allocateDescriptor() override;
@@ -303,7 +316,7 @@ namespace nvrhi::d3d12
         void createUAV(size_t descriptor, Format format, TextureDimension dimension, TextureSubresourceSet subresources) const;
         void createRTV(size_t descriptor, Format format, TextureSubresourceSet subresources) const;
         void createDSV(size_t descriptor, TextureSubresourceSet subresources, bool isReadOnly = false) const;
-        DescriptorIndex getClearMipLevelUAV(uint32_t mipLevel);
+        DescriptorIndex getClearMipLevelUAV(uint32_t mipLevel, Format interpretFormat);
 
     private:
         const Context& m_Context;
@@ -663,6 +676,7 @@ namespace nvrhi::d3d12
     public:
         uint32_t capacity = 0;
         DescriptorIndex firstDescriptor = 0;
+        BindingLayoutHandle layout;
 
         DescriptorTable(DeviceResources& resources)
             : m_Resources(resources)
@@ -671,9 +685,12 @@ namespace nvrhi::d3d12
         ~DescriptorTable() override;
 
         const BindingSetDesc* getDesc() const override { return nullptr; }
-        IBindingLayout* getLayout() const override { return nullptr; }
+        IBindingLayout* getLayout() const override { return layout; }
         uint32_t getCapacity() const override { return capacity; }
         uint32_t getFirstDescriptorIndexInHeap() const override { return firstDescriptor; }
+        
+        bool isSamplerTable() const;
+        StaticDescriptorHeap& getDescriptorHeap() const;
 
     private:
         DeviceResources& m_Resources;
@@ -939,7 +956,7 @@ namespace nvrhi::d3d12
         RefCountPtr<ID3D12GraphicsCommandList> commandList;
         RefCountPtr<ID3D12GraphicsCommandList4> commandList4;
         RefCountPtr<ID3D12GraphicsCommandList6> commandList6;
-#if NVRHI_D3D12_WITH_COOPVEC
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
         RefCountPtr<ID3D12GraphicsCommandListPreview> commandListPreview;
 #endif
         uint64_t lastSubmittedInstance = 0;
@@ -1023,6 +1040,8 @@ namespace nvrhi::d3d12
 
         void setMeshletState(const MeshletState& state) override;
         void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;
+        void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount) override;
+        void dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount) override;
 
         void setRayTracingState(const rt::State& state) override;
         void dispatchRays(const rt::DispatchRaysArguments& args) override;
@@ -1030,6 +1049,7 @@ namespace nvrhi::d3d12
         void buildOpacityMicromap(rt::IOpacityMicromap* omm, const rt::OpacityMicromapDesc& desc) override;
         void buildBottomLevelAccelStruct(rt::IAccelStruct* as, const rt::GeometryDesc* pGeometries, size_t numGeometries, rt::AccelStructBuildFlags buildFlags) override;
         void compactBottomLevelAccelStructs() override;
+        void copyRaytracingAccelerationStructure(rt::IAccelStruct* destination, rt::IAccelStruct* source) override;
         void buildTopLevelAccelStruct(rt::IAccelStruct* as, const rt::InstanceDesc* pInstances, size_t numInstances, rt::AccelStructBuildFlags buildFlags) override;
         void buildTopLevelAccelStructFromBuffer(rt::IAccelStruct* as, nvrhi::IBuffer* instanceBuffer, uint64_t instanceBufferOffset, size_t numInstances,
             rt::AccelStructBuildFlags buildFlags = rt::AccelStructBuildFlags::None) override;
@@ -1265,6 +1285,8 @@ namespace nvrhi::d3d12
         bool queryFeatureSupport(Feature feature, void* pInfo = nullptr, size_t infoSize = 0) override;
         FormatSupport queryFormatSupport(Format format) override;
         coopvec::DeviceFeatures queryCoopVecFeatures() override;
+        coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) override;
+        coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(coopvec::DataType componentType) override;
         size_t getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns) override;
         Object getNativeQueue(ObjectType objectType, CommandQueue queue) override;
         IMessageCallback* getMessageCallback() override { return m_Context.messageCallback; }
@@ -1315,9 +1337,15 @@ namespace nvrhi::d3d12
         bool m_ShaderExecutionReorderingSupported = false;
         bool m_SamplerFeedbackSupported = false;
         bool m_AftermathEnabled = false;
+        bool m_RayTracingValidationEnabled = false;
+        void* m_RayTracingValidationCallbackHandle = nullptr;
         bool m_HeapDirectlyIndexedEnabled = false;
+#if NVRHI_D3D12_WITH_LINALG
+        bool m_LinearAlgebraSupported = false;
+#else
         bool m_CoopVecInferencingSupported = false;
         bool m_CoopVecTrainingSupported = false;
+#endif
         AftermathCrashDumpHelper m_AftermathCrashDumpHelper;
 
 

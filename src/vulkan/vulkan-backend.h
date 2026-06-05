@@ -158,6 +158,7 @@ namespace nvrhi::vulkan
             bool NV_device_diagnostic_checkpoints = false;
             bool NV_device_diagnostics_config= false;
 #endif
+            bool EXT_depth_clip_enable = false;
         } extensions;
 
         vk::PhysicalDeviceProperties physicalDeviceProperties;
@@ -1158,6 +1159,8 @@ namespace nvrhi::vulkan
         bool queryFeatureSupport(Feature feature, void* pInfo = nullptr, size_t infoSize = 0) override;
         FormatSupport queryFormatSupport(Format format) override;
         coopvec::DeviceFeatures queryCoopVecFeatures() override;
+        coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) override;
+        coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(coopvec::DataType componentType) override;
         size_t getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns) override;
         Object getNativeQueue(ObjectType objectType, CommandQueue queue) override;
         IMessageCallback* getMessageCallback() override { return m_Context.messageCallback; }
@@ -1186,7 +1189,12 @@ namespace nvrhi::vulkan
 
         // array of submission queues
         std::array<std::unique_ptr<Queue>, uint32_t(CommandQueue::Count)> m_Queues;
-        
+
+        // Lazily populated on the first call to queryCoopVecMatMulFormatSupport or queryCoopVecFeatures.
+        mutable std::vector<vk::CooperativeVectorPropertiesNV> m_CoopVecMatMulProperties;
+        mutable bool m_CoopVecMatMulPropertiesPopulated = false;
+        void getCoopVecMatMulProperties() const;
+
         void *mapBuffer(IBuffer* b, CpuAccessMode flags, uint64_t offset, size_t size) const;
     };
 
@@ -1242,6 +1250,8 @@ namespace nvrhi::vulkan
 
         void setMeshletState(const MeshletState& state) override;
         void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;
+        void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount) override;
+        void dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount) override;
 
         void setRayTracingState(const rt::State& state) override;
         void dispatchRays(const rt::DispatchRaysArguments& args) override;
@@ -1249,6 +1259,7 @@ namespace nvrhi::vulkan
         void buildOpacityMicromap(rt::IOpacityMicromap* omm, const rt::OpacityMicromapDesc& desc) override;
         void buildBottomLevelAccelStruct(rt::IAccelStruct* as, const rt::GeometryDesc* pGeometries, size_t numGeometries, rt::AccelStructBuildFlags buildFlags) override;
         void compactBottomLevelAccelStructs() override;
+        void copyRaytracingAccelerationStructure(rt::IAccelStruct* destination, rt::IAccelStruct* source) override;
         void buildTopLevelAccelStruct(rt::IAccelStruct* as, const rt::InstanceDesc* pInstances, size_t numInstances, rt::AccelStructBuildFlags buildFlags) override;
         void buildTopLevelAccelStructFromBuffer(rt::IAccelStruct* as, nvrhi::IBuffer* instanceBuffer, uint64_t instanceBufferOffset, size_t numInstances,
             rt::AccelStructBuildFlags buildFlags = rt::AccelStructBuildFlags::None) override;

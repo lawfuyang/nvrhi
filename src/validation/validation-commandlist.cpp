@@ -951,6 +951,66 @@ namespace nvrhi::validation
         m_CommandList->dispatchMesh(groupsX, groupsY, groupsZ);
     }
 
+    void CommandListWrapper::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount)
+    {
+        if (!requireOpenState())
+            return;
+
+        if (!requireType(CommandQueue::Graphics, "dispatchMesh"))
+            return;
+
+        if (!m_MeshletStateSet)
+        {
+            error("Meshlet state is not set before a dispatchMesh call.\n"
+                "Note that setting graphics or compute state invalidates the meshlet state.");
+            return;
+        }
+
+        if (!validatePushConstants("meshlet", "setMeshletState"))
+            return;
+
+        if (!m_CurrentMeshletState.indirectParams)
+        {
+            error("Indirect params buffer is not set before a dispatchMeshIndirect call.");
+            return;
+        }
+
+        m_CommandList->dispatchMeshIndirect(offsetBytes, maxDrawCount);
+    }
+
+    void CommandListWrapper::dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount)
+    {
+        if (!requireOpenState())
+            return;
+
+        if (!requireType(CommandQueue::Graphics, "dispatchMesh"))
+            return;
+
+        if (!m_MeshletStateSet)
+        {
+            error("Meshlet state is not set before a dispatchMesh call.\n"
+                "Note that setting graphics or compute state invalidates the meshlet state.");
+            return;
+        }
+
+        if (!validatePushConstants("meshlet", "setMeshletState"))
+            return;
+
+        if (!m_CurrentMeshletState.indirectParams)
+        {
+            error("Indirect params buffer is not set before a dispatchMeshIndirectCount call.");
+            return;
+        }
+
+        if (!m_CurrentMeshletState.indirectCountBuffer)
+        {
+            error("Indirect count buffer is not set before a dispatchMeshIndirectCount call.");
+            return;
+        }
+
+        m_CommandList->dispatchMeshIndirectCount(paramOffsetBytes, countOffsetBytes, maxDrawCount);
+    }
+
     void CommandListWrapper::beginTimerQuery(ITimerQuery* query)
     {
         if (!requireOpenState())
@@ -1175,6 +1235,32 @@ namespace nvrhi::validation
             return;
 
         m_CommandList->compactBottomLevelAccelStructs();
+    }
+
+    void CommandListWrapper::copyRaytracingAccelerationStructure(rt::IAccelStruct* destination, rt::IAccelStruct* source)
+    {
+        if (!requireOpenState())
+            return;
+
+        if (!requireType(CommandQueue::Compute, "copyRaytracingAccelerationStructure"))
+            return;
+
+        rt::IAccelStruct* underlyingDst = destination;
+        rt::IAccelStruct* underlyingSrc = source;
+
+        AccelStructWrapper* dstWrapper = dynamic_cast<AccelStructWrapper*>(destination);
+        if (dstWrapper)
+        {
+            underlyingDst = dstWrapper->getUnderlyingObject();
+        }
+
+        AccelStructWrapper* srcWrapper = dynamic_cast<AccelStructWrapper*>(source);
+        if (srcWrapper)
+        {
+            underlyingSrc = srcWrapper->getUnderlyingObject();
+        }
+
+        m_CommandList->copyRaytracingAccelerationStructure(underlyingDst, underlyingSrc);
     }
 
     void CommandListWrapper::buildOpacityMicromap(rt::IOpacityMicromap* omm, const rt::OpacityMicromapDesc& desc) 

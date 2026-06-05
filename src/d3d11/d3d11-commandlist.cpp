@@ -188,6 +188,16 @@ namespace nvrhi::d3d11
         utils::NotSupported();
     }
 
+    void CommandList::dispatchMeshIndirect(uint32_t, uint32_t)
+    {
+        utils::NotSupported();
+    }
+
+    void CommandList::dispatchMeshIndirectCount(uint32_t, uint32_t, uint32_t)
+    {
+        utils::NotSupported();
+    }
+
     void CommandList::setRayTracingState(const rt::State&)
     {
         utils::NotSupported();
@@ -209,6 +219,11 @@ namespace nvrhi::d3d11
     }
 
     void CommandList::compactBottomLevelAccelStructs()
+    {
+        utils::NotSupported();
+    }
+
+    void CommandList::copyRaytracingAccelerationStructure(rt::IAccelStruct*, rt::IAccelStruct*)
     {
         utils::NotSupported();
     }

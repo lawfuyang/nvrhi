@@ -28,6 +28,7 @@
 #include <nvShaderExtnEnums.h>
 #endif
 
+#include <cstdlib>  // for _putenv_s (RT validation env-var gate)
 #include <sstream>
 #include <iomanip>
 
@@ -43,6 +44,33 @@ namespace nvrhi::d3d12
         messageCallback->message(MessageSeverity::Info, message.c_str());
     }
 
+#if NVRHI_D3D12_WITH_NVAPI
+    // Routes NVAPI ray tracing validation messages to the device's IMessageCallback.
+    // May be invoked from an arbitrary driver thread; it only logs and must not touch the device.
+    static void __stdcall raytracingValidationMessageCallback(
+        void* pUserData,
+        NVAPI_D3D12_RAYTRACING_VALIDATION_MESSAGE_SEVERITY severity,
+        const char* messageCode,
+        const char* message,
+        const char* messageDetails)
+    {
+        const Context* context = static_cast<const Context*>(pUserData);
+        if (!context || !context->messageCallback)
+            return;
+
+        std::stringstream ss;
+        ss << "Ray Tracing Validation [" << (messageCode ? messageCode : "") << "] "
+           << (message ? message : "");
+        if (messageDetails && messageDetails[0])
+            ss << "\n" << messageDetails;
+
+        const MessageSeverity ms =
+            (severity == NVAPI_D3D12_RAYTRACING_VALIDATION_MESSAGE_SEVERITY_ERROR)
+            ? MessageSeverity::Error : MessageSeverity::Warning;
+        context->messageCallback->message(ms, ss.str().c_str());
+    }
+#endif
+
     void WaitForFence(ID3D12Fence* fence, uint64_t value, HANDLE event)
     {
         // Test if the fence has been reached
@@ -55,6 +83,28 @@ namespace nvrhi::d3d12
         }
     }
 
+#if NVRHI_D3D12_WITH_LINALG
+    static bool isLinearAlgebraDataTypeSupported(coopvec::DataType type)
+    {
+        switch (type)
+        {
+        case coopvec::DataType::UInt8:
+        case coopvec::DataType::SInt8:
+        case coopvec::DataType::UInt16:
+        case coopvec::DataType::SInt16:
+        case coopvec::DataType::UInt32:
+        case coopvec::DataType::SInt32:
+        case coopvec::DataType::FloatE4M3:
+        case coopvec::DataType::FloatE5M2:
+        case coopvec::DataType::Float16:
+        case coopvec::DataType::Float32:
+            return true;
+
+        default:
+            return false;
+        }
+    }
+#endif
 
     DeviceHandle createDevice(const DeviceDesc& desc)
     {
@@ -204,16 +254,25 @@ namespace nvrhi::d3d12
             m_SamplerFeedbackSupported = m_Options7.SamplerFeedbackTier >= D3D12_SAMPLER_FEEDBACK_TIER_0_9;
         }
 
-#if NVRHI_D3D12_WITH_COOPVEC
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
         if (SUCCEEDED(m_Context.device->QueryInterface(&m_Context.devicePreview)))
         {
+#if NVRHI_D3D12_WITH_LINALG
+            D3D12_FEATURE_DATA_LINEAR_ALGEBRA_SUPPORT linearAlgebraSupport{};
+            if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_SUPPORT, &linearAlgebraSupport, 
+                sizeof(linearAlgebraSupport))))
+            {
+                m_LinearAlgebraSupported = linearAlgebraSupport.LinearAlgebraTier >= D3D12_LINEAR_ALGEBRA_TIER_1_0;
+            }
+#else
             D3D12_FEATURE_DATA_D3D12_OPTIONS_EXPERIMENTAL experimentalOptions{};
             if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_EXPERIMENTAL,
-                &experimentalOptions, UINT(sizeof experimentalOptions))))
+                    &experimentalOptions, sizeof(experimentalOptions))))
             {
                 m_CoopVecInferencingSupported = experimentalOptions.CooperativeVectorTier >= D3D12_COOPERATIVE_VECTOR_TIER_1_0;
                 m_CoopVecTrainingSupported = experimentalOptions.CooperativeVectorTier >= D3D12_COOPERATIVE_VECTOR_TIER_1_1;
             }
+#endif
         }
 #endif
 
@@ -239,6 +298,10 @@ namespace nvrhi::d3d12
             csDesc.ByteStride = 12;
             argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
             m_Context.device->CreateCommandSignature(&csDesc, nullptr, IID_PPV_ARGS(&m_Context.dispatchIndirectSignature));
+
+            csDesc.ByteStride = 12;
+            argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+            m_Context.device->CreateCommandSignature(&csDesc, nullptr, IID_PPV_ARGS(&m_Context.dispatchMeshIndirectSignature));
         }
         
         m_FenceEvent = CreateEvent(nullptr, false, false, nullptr);
@@ -249,6 +312,42 @@ namespace nvrhi::d3d12
 
         if (m_NvapiIsInitialized)
         {
+            // Ray tracing validation must be enabled before any other ray tracing call on the
+            // device (including the capability queries below), otherwise it fails with NVAPI_INVALID_CALL.
+            if (desc.enableRayTracingValidation && m_Context.device5)
+            {
+                // NVAPI gates validation on NV_ALLOW_RAYTRACING_VALIDATION=1. Set it just-in-time
+                // so callers don't need to export the env var before launching — _putenv_s mutates
+                // both the CRT environment and the Win32 process env block, which is what NVAPI
+                // queries. Only fires when validation was explicitly requested via desc.
+                _putenv_s("NV_ALLOW_RAYTRACING_VALIDATION", "1");
+
+                NvAPI_Status rtvStatus = NvAPI_D3D12_EnableRaytracingValidation(
+                    m_Context.device5, NVAPI_D3D12_RAYTRACING_VALIDATION_FLAG_NONE);
+                if (rtvStatus == NVAPI_OK)
+                {
+                    NvAPI_Status regStatus = NvAPI_D3D12_RegisterRaytracingValidationMessageCallback(
+                        m_Context.device5, &raytracingValidationMessageCallback, &m_Context, &m_RayTracingValidationCallbackHandle);
+                    if (regStatus == NVAPI_OK)
+                    {
+                        m_RayTracingValidationEnabled = true;
+                        m_Context.info("NVAPI ray tracing validation enabled");
+                    }
+                    else
+                    {
+                        m_Context.error("NvAPI_D3D12_RegisterRaytracingValidationMessageCallback failed with NvAPI_Status " + std::to_string(regStatus));
+                    }
+                }
+                else if (rtvStatus == NVAPI_ACCESS_DENIED)
+                {
+                    m_Context.error("NvAPI_D3D12_EnableRaytracingValidation denied: set the NV_ALLOW_RAYTRACING_VALIDATION=1 environment variable (and restart) to allow ray tracing validation.");
+                }
+                else
+                {
+                    m_Context.error("NvAPI_D3D12_EnableRaytracingValidation failed with NvAPI_Status " + std::to_string(rtvStatus));
+                }
+            }
+
             NV_QUERY_SINGLE_PASS_STEREO_SUPPORT_PARAMS stereoParams{};
             stereoParams.version = NV_QUERY_SINGLE_PASS_STEREO_SUPPORT_PARAMS_VER;
 
@@ -373,6 +472,16 @@ namespace nvrhi::d3d12
     {
         waitForIdle();
 
+#if NVRHI_D3D12_WITH_NVAPI
+        if (m_RayTracingValidationEnabled)
+        {
+            // waitForIdle() already flushed; unregister now that no GPU work can produce more messages.
+            NvAPI_D3D12_UnregisterRaytracingValidationMessageCallback(m_Context.device5, m_RayTracingValidationCallbackHandle);
+            m_RayTracingValidationEnabled = false;
+            m_RayTracingValidationCallbackHandle = nullptr;
+        }
+#endif
+
         if (m_FenceEvent)
         {
             CloseHandle(m_FenceEvent);
@@ -393,6 +502,14 @@ namespace nvrhi::d3d12
                 WaitForFence(pQueue->fence, pQueue->lastSubmittedInstance, m_FenceEvent);
             }
         }
+
+#if NVRHI_D3D12_WITH_NVAPI
+        // Report ray tracing validation messages for the GPU work that just completed. Doing this
+        // after the fence waits also lets messages drain even when the device is being removed.
+        if (m_RayTracingValidationEnabled)
+            NvAPI_D3D12_FlushRaytracingValidationMessages(m_Context.device5);
+#endif
+
         return true;
     }
 
@@ -628,6 +745,13 @@ namespace nvrhi::d3d12
 
             pQueue->lifetimeTracker->runGarbageCollection();
         }
+
+#if NVRHI_D3D12_WITH_NVAPI
+        // Drain ray tracing validation messages for GPU work that has completed since the last call.
+        // runGarbageCollection() runs once per frame, giving per-frame message granularity.
+        if (m_RayTracingValidationEnabled)
+            NvAPI_D3D12_FlushRaytracingValidationMessages(m_Context.device5);
+#endif
     }
 
     bool Device::queryFeatureSupport(Feature feature, void* pInfo, size_t infoSize)
@@ -702,9 +826,17 @@ namespace nvrhi::d3d12
             }
             return true;
         case Feature::CooperativeVectorInferencing:
+#if NVRHI_D3D12_WITH_LINALG
+            return m_LinearAlgebraSupported;
+#else
             return m_CoopVecInferencingSupported;
+#endif
         case Feature::CooperativeVectorTraining:
-            return m_CoopVecTrainingSupported;  
+#if NVRHI_D3D12_WITH_LINALG
+            return m_LinearAlgebraSupported;
+#else
+            return m_CoopVecTrainingSupported;
+#endif
         default:
             return false;
         }
@@ -758,17 +890,28 @@ namespace nvrhi::d3d12
         return result;
     }
 
+    // Deprecated aggregate query. Prefer the per-format CoopVec queries on IDevice.
     coopvec::DeviceFeatures Device::queryCoopVecFeatures()
     {
         coopvec::DeviceFeatures result;
-#if NVRHI_D3D12_WITH_COOPVEC
-        // Get the format count
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
+#if NVRHI_D3D12_WITH_LINALG
+        // Matrix multiplication support is queried per combination on this path.
+        if (!m_LinearAlgebraSupported)
+        {
+            return result;
+        }
+
+        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float16).bufferTrainingSupported;
+
+        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float32).bufferTrainingSupported;
+#else
+        // Older D3D12 CoopVec support reports matrix multiplication through a property list.
         D3D12_FEATURE_DATA_COOPERATIVE_VECTOR coopVecData{};
         if (m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR,
-            &coopVecData, UINT(sizeof coopVecData)) != S_OK)
+            &coopVecData, sizeof(coopVecData)) != S_OK)
             return result;
-        
-        // Get the supported format list
+
         std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL> matMulProperties(coopVecData.MatrixVectorMulAddPropCount);
         std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> outerProductAccumulateProperties(coopVecData.OuterProductAccumulatePropCount);
         std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> vectorAccumulateProperties(coopVecData.VectorAccumulatePropCount);
@@ -776,7 +919,7 @@ namespace nvrhi::d3d12
         coopVecData.pOuterProductAccumulateProperties = outerProductAccumulateProperties.data();
         coopVecData.pVectorAccumulateProperties = vectorAccumulateProperties.data();
         if (m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR,
-            &coopVecData, UINT(sizeof coopVecData)) != S_OK)
+            &coopVecData, sizeof(coopVecData)) != S_OK)
             return result;
 
         result.matMulFormats.reserve(matMulProperties.size());
@@ -791,43 +934,212 @@ namespace nvrhi::d3d12
             combo.transposeSupported = !!prop.TransposeSupported;
         }
 
-        bool outerProductFloat16Supported = false;
-        bool outerProductFloat32Supported = false;
-        bool vectorAccumulateFloat16Supported = false;
-        bool vectorAccumulateFloat32Supported = false;
+        result.trainingFloat16 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float16).bufferTrainingSupported;
 
-        for (const auto& prop : outerProductAccumulateProperties)
+        result.trainingFloat32 = queryCoopVecTrainingFormatSupport(coopvec::DataType::Float32).bufferTrainingSupported;
+#endif
+#endif
+        return result;
+    }
+
+    // Queries the D3D12 matrix multiplication path for a single CoopVec type combination.
+    // On the linalg path, inputType must match inputInterpretation.
+    coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
+    {
+        coopvec::MatMulFormatSupport result{};
+
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
+#if NVRHI_D3D12_WITH_LINALG
+        if (!m_LinearAlgebraSupported)
+            return result;
+
+        if (combination.inputType != combination.inputInterpretation)
+            return result;
+
+        if (!isLinearAlgebraDataTypeSupported(combination.inputInterpretation) ||
+            !isLinearAlgebraDataTypeSupported(combination.matrixInterpretation) ||
+            !isLinearAlgebraDataTypeSupported(combination.biasInterpretation) ||
+            !isLinearAlgebraDataTypeSupported(combination.outputType))
+            return result;
+
+        const D3D12_LINEAR_ALGEBRA_DATATYPE vectorInput = convertCoopVecDataType(combination.inputInterpretation);
+        const D3D12_LINEAR_ALGEBRA_DATATYPE matrixInput = convertCoopVecDataType(combination.matrixInterpretation);
+        const D3D12_LINEAR_ALGEBRA_DATATYPE biasInput = convertCoopVecDataType(combination.biasInterpretation);
+        const D3D12_LINEAR_ALGEBRA_DATATYPE vectorResult = convertCoopVecDataType(combination.outputType);
+
+        D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT op{};
+        op.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY;
+        op.ThreadVectorMatrixMultiply.VectorInputType = vectorInput;
+        op.ThreadVectorMatrixMultiply.MatrixInputType = matrixInput;
+        op.ThreadVectorMatrixMultiply.BiasInputType = biasInput;
+        op.ThreadVectorMatrixMultiply.VectorResultType = vectorResult;
+        if (FAILED(m_Context.device.Get()->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT, 
+            &op, sizeof(op))))
         {
-            if (prop.AccumulationType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16)
+            return result;
+        }
+
+        const uint32_t flags = op.ThreadVectorMatrixMultiply.SupportFlags;
+        if ((flags & D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) == 0)
+        {
+            return result;
+        }
+
+        result.supported = true;
+        result.transposeSupported = (flags & D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE) != 0;
+        result.emulatedInputs = (flags & D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS) != 0;
+        return result;
+#else
+        // Older CoopVec support reports matrix multiplication through a property list.
+        if (!m_CoopVecInferencingSupported)
+            return result;
+
+        const auto inputType = convertCoopVecDataType(combination.inputType);
+        const auto inputInterpretation = convertCoopVecDataType(combination.inputInterpretation);
+        const auto matrixInterpretation = convertCoopVecDataType(combination.matrixInterpretation);
+        const auto biasInterpretation = convertCoopVecDataType(combination.biasInterpretation);
+        const auto outputType = convertCoopVecDataType(combination.outputType);
+
+        D3D12_FEATURE_DATA_COOPERATIVE_VECTOR coopVecData{};
+        if (FAILED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR, &coopVecData, sizeof(coopVecData))))
+            return result;
+
+        std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL> matMulProperties(coopVecData.MatrixVectorMulAddPropCount);
+        std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> outerProductAccumulateProperties(
+            coopVecData.OuterProductAccumulatePropCount);
+        std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> vectorAccumulateProperties(
+            coopVecData.VectorAccumulatePropCount);
+        coopVecData.pMatrixVectorMulAddProperties = matMulProperties.data();
+        coopVecData.pOuterProductAccumulateProperties = outerProductAccumulateProperties.data();
+        coopVecData.pVectorAccumulateProperties = vectorAccumulateProperties.data();
+
+        if (FAILED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR, &coopVecData, sizeof(coopVecData))))
+            return result;
+
+        for (const auto& prop : matMulProperties)
+        {
+            if (prop.InputType == inputType && 
+                prop.InputInterpretation == inputInterpretation &&
+                prop.MatrixInterpretation == matrixInterpretation &&
+                prop.BiasInterpretation == biasInterpretation &&
+                prop.OutputType == outputType)
             {
-                outerProductFloat16Supported = true;
-            }
-            else if (prop.AccumulationType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32)
-            {
-                outerProductFloat32Supported = true;
+                result.supported = true;
+                result.transposeSupported = prop.TransposeSupported != FALSE;
+                return result;
             }
         }
-        for (const auto& prop : vectorAccumulateProperties)
+        return result;
+#endif // NVRHI_D3D12_WITH_LINALG
+#else
+        (void)combination;
+        return result;
+#endif // NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
+    }
+
+    // Queries D3D12 training support for a single accumulation component type.
+    // Older CoopVec support cannot report group-shared accumulate-store separately.
+    coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(coopvec::DataType componentType)
+    {
+        coopvec::TrainingFormatSupport result{};
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
+#if NVRHI_D3D12_WITH_LINALG
+        if (!m_LinearAlgebraSupported)
+            return result;
+
+        if (!isLinearAlgebraDataTypeSupported(componentType))
+            return result;
+
+        const D3D12_LINEAR_ALGEBRA_DATATYPE d3dComponentType = convertCoopVecDataType(componentType);
+
         {
-            if (prop.AccumulationType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16)
+            D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT outerProductOp = {};
+            outerProductOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT;
+
+            outerProductOp.ThreadOuterProductSupport.InputComponentType = d3dComponentType;
+            outerProductOp.ThreadOuterProductSupport.ResultComponentType = d3dComponentType;
+
+            if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT, &outerProductOp, sizeof(outerProductOp))))
             {
-                vectorAccumulateFloat16Supported = true;
-            }
-            else if (prop.AccumulationType == D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32)
-            {
-                vectorAccumulateFloat32Supported = true;
+                result.threadOuterProductSupported = outerProductOp.ThreadOuterProductSupport.Supported != FALSE;
             }
         }
 
-        result.trainingFloat16 = outerProductFloat16Supported && vectorAccumulateFloat16Supported;
-        result.trainingFloat32 = outerProductFloat32Supported && vectorAccumulateFloat32Supported;
+        {
+            D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT accumulateStoreOp = {};
+            accumulateStoreOp.OperationType = D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE;
+            accumulateStoreOp.AccumulateStore.ComponentType = d3dComponentType;
+
+            if (SUCCEEDED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_LINEAR_ALGEBRA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT, &accumulateStoreOp, sizeof(accumulateStoreOp))))
+            {
+                result.bufferAccumulateStoreSupported = accumulateStoreOp.AccumulateStore.RWByteAddressBufferSupported != FALSE;
+                result.groupSharedAccumulateStoreSupported = accumulateStoreOp.AccumulateStore.GroupSharedSupported != FALSE;
+            }
+        }
+
+        result.bufferTrainingSupported = result.threadOuterProductSupported && result.bufferAccumulateStoreSupported;
+#else
+        if (!m_CoopVecTrainingSupported)
+            return result;
+
+        const D3D12_LINEAR_ALGEBRA_DATATYPE accD3d = convertCoopVecDataType(componentType);
+
+        D3D12_FEATURE_DATA_COOPERATIVE_VECTOR coopVecData{};
+        if (FAILED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR,
+                &coopVecData, sizeof(coopVecData))))
+            return result;
+
+        std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL> matMulProperties(coopVecData.MatrixVectorMulAddPropCount);
+        std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> outerAccumProps(coopVecData.OuterProductAccumulatePropCount);
+        std::vector<D3D12_COOPERATIVE_VECTOR_PROPERTIES_ACCUMULATE> vectorAccumProps(coopVecData.VectorAccumulatePropCount);
+        coopVecData.pMatrixVectorMulAddProperties = matMulProperties.data();
+        coopVecData.pOuterProductAccumulateProperties = outerAccumProps.data();
+        coopVecData.pVectorAccumulateProperties = vectorAccumProps.data();
+
+        if (FAILED(m_Context.device->CheckFeatureSupport(D3D12_FEATURE_COOPERATIVE_VECTOR,
+                &coopVecData, sizeof(coopVecData))))
+            return result;
+
+        for (const auto& prop : outerAccumProps)
+        {
+            if (prop.AccumulationType == accD3d)
+            {
+                result.threadOuterProductSupported = true;
+                break;
+            }
+        }
+
+        for (const auto& prop : vectorAccumProps)
+        {
+            if (prop.AccumulationType == accD3d)
+            {
+                result.bufferAccumulateStoreSupported = true;
+                break;
+            }
+        }
+
+        result.bufferTrainingSupported = result.threadOuterProductSupported && result.bufferAccumulateStoreSupported;
+#endif
+#else
+        (void)componentType;
 #endif
         return result;
     }
 
     size_t Device::getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns)
     {
-#if NVRHI_D3D12_WITH_COOPVEC
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
+#if NVRHI_D3D12_WITH_LINALG
+        if (!m_LinearAlgebraSupported || !m_Context.devicePreview)
+            return 0;
+
+        if (!isLinearAlgebraDataTypeSupported(type))
+            return 0;
+#else
+        if (!m_CoopVecInferencingSupported || !m_Context.devicePreview)
+            return 0;
+#endif
+
         D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO destInfo = {};
         destInfo.DestLayout = convertCoopVecMatrixLayout(layout);
         destInfo.NumRows = rows;

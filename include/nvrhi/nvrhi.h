@@ -64,7 +64,7 @@ namespace nvrhi
 {
     // Version of the public API provided by NVRHI.
     // Increment this when any changes to the API are made.
-    static constexpr uint32_t c_HeaderVersion = 23;
+    static constexpr uint32_t c_HeaderVersion = 24;
 
     // Verifies that the version of the implementation matches the version of the header.
     // Returns true if they match. Use this when initializing apps using NVRHI as a shared library.
@@ -2759,6 +2759,7 @@ namespace nvrhi
         BindingSetVector bindings;
 
         IBuffer* indirectParams = nullptr;
+        IBuffer* indirectCountBuffer = nullptr;
 
         MeshletState& setPipeline(IMeshletPipeline* value) { pipeline = value; return *this; }
         MeshletState& setFramebuffer(IFramebuffer* value) { framebuffer = value; return *this; }
@@ -2766,6 +2767,7 @@ namespace nvrhi
         MeshletState& setBlendColor(const Color& value) { blendConstantColor = value; return *this; }
         MeshletState& addBindingSet(IBindingSet* value) { bindings.push_back(value); return *this; }
         MeshletState& setIndirectParams(IBuffer* value) { indirectParams = value; return *this; }
+        MeshletState& setIndirectCountBuffer(IBuffer* value) { indirectCountBuffer = value; return *this; }
         MeshletState& setDynamicStencilRefValue(uint8_t value) { dynamicStencilRefValue = value; return *this; }
     };
 
@@ -2936,11 +2938,10 @@ namespace nvrhi
             TrainingOptimal
         };
 
-        // Describes a combination of input and output data types for matrix multiplication with Cooperative Vectors.
-        // - DX12: Maps from D3D12_COOPERATIVE_VECTOR_PROPERTIES_MUL.
-        // - Vulkan: Maps from VkCooperativeVectorPropertiesNV.
+        // Describes a combination of input and output data types for CoopVec matrix multiplication.
         struct MatMulFormatCombo
         {
+            // Raw storage element type. May differ from inputInterpretation for packed or interpreted formats.
             DataType inputType;
             DataType inputInterpretation;
             DataType matrixInterpretation;
@@ -2949,19 +2950,37 @@ namespace nvrhi
             bool transposeSupported;
         };
 
+        // Result of queryCoopVecMatMulFormatSupport.
+        struct MatMulFormatSupport
+        {
+            bool supported = false;
+            bool transposeSupported = false;
+            bool emulatedInputs = false;
+        };
+
+        // Result of queryCoopVecTrainingFormatSupport.
+        struct TrainingFormatSupport
+        {
+            // True if the backend supports a complete buffer training path for the queried accumulation type.
+            bool bufferTrainingSupported = false;
+
+            bool threadOuterProductSupported = false;
+            bool bufferAccumulateStoreSupported = false;
+            bool groupSharedAccumulateStoreSupported = false;
+        };
+
+        // Deprecated aggregate CoopVec support information.
+        // New code should use queryCoopVecMatMulFormatSupport(...) and
+        // queryCoopVecTrainingFormatSupport(...) instead.
         struct DeviceFeatures
         {
-            // Format combinations supported by the device for matrix multiplication with Cooperative Vectors.
+            // Format combinations supported by the device for CoopVec matrix multiplication.
             std::vector<MatMulFormatCombo> matMulFormats;
 
-            // - DX12: True if FLOAT16 is supported as accumulation format for both outer product accumulation
-            //         and vector accumulation.
-            // - Vulkan: True if cooperativeVectorTrainingFloat16Accumulation is supported.
+            // True if the backend supports a complete buffer training path for Float16 accumulation.
             bool trainingFloat16 = false;
 
-            // - DX12: True if FLOAT32 is supported as accumulation format for both outer product accumulation
-            //         and vector accumulation.
-            // - Vulkan: True if cooperativeVectorTrainingFloat32Accumulation is supported.
+            // True if the backend supports a complete buffer training path for Float32 accumulation.
             bool trainingFloat32 = false;
         };
 
@@ -3394,6 +3413,24 @@ namespace nvrhi
         // - Vulkan: Maps to vkCmdDispatchMesh.
         virtual void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) = 0;
 
+        // Draws meshlet primitives using the parameters provided in the indirect buffer specified in the prior
+        // call to setMeshletState(...). The memory layout in the buffer is the same for all graphics APIs and is
+        // described by the DispatchIndirectArguments structure.
+        // See the comment to dispatchMesh(...) for state information.
+        // - DX11: Not supported.
+        // - DX12: Maps to ExecuteIndirect with a predefined signature.
+        // - Vulkan: Maps to vkCmdDrawMeshTasksIndirectEXT.
+        virtual void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount) = 0;
+
+        // Draws meshlet primitives using the parameters provided in the indirect buffer specified in the prior
+        // call to setMeshletState(...).
+        // The draw count is read from the indirectCountBuffer specified in setMeshletState(...)
+        //   at offset 'countOffsetBytes'.
+        // - DX11: Not supported.
+        // - DX12: Not supported.
+        // - Vulkan: Maps to vkCmdDrawMeshTasksIndirectCountEXT.
+        virtual void dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount) = 0;
+
         // Sets the specified ray tracing state on the command list.
         // The state includes the shader table, which references the pipeline, and all bound resources.
         // Not supported on DX11.
@@ -3443,6 +3480,14 @@ namespace nvrhi
         // for compaction. This process is handled by the RTXMU library. If NVRHI is built without RTXMU,
         // this function has no effect.
         virtual void compactBottomLevelAccelStructs() = 0;
+
+        // Copies a ray tracing acceleration structure to another memory location.
+        // This function clones the acceleration structure, creating a copy that can be used independently.
+        // - DX11: Not supported.
+        // - DX12: Maps to ID3D12GraphicsCommandList4::CopyRaytracingAccelerationStructure with 
+        //   D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE_CLONE.
+        // - Vulkan: Maps to vkCmdCopyAccelerationStructureKHR or vkCmdCopyAccelerationStructureToMemoryKHR.
+        virtual void copyRaytracingAccelerationStructure(rt::IAccelStruct* destination, rt::IAccelStruct* source) = 0;
 
         // Builds or updates a top-level ray tracing acceleration structure (TLAS).
         // A temporary memory region for the build is suballocated using the scratch buffer manager attached to the
@@ -3724,8 +3769,20 @@ namespace nvrhi
 
         virtual FormatSupport queryFormatSupport(Format format) = 0;
 
-        // Returns a list of supported CoopVec matrix multiplication formats and accumulation capabilities.
+        // Returns aggregate CoopVec support information.
+        // Deprecated for new code: use queryCoopVecMatMulFormatSupport(...) and
+        // queryCoopVecTrainingFormatSupport(...) instead.
+        // Some backends may not populate matMulFormats; use queryCoopVecMatMulFormatSupport(...)
+        // to query specific matrix multiplication combinations.
         virtual coopvec::DeviceFeatures queryCoopVecFeatures() = 0;
+
+        // Queries support for CoopVec matrix multiplication with the given type combination.
+        // combination.transposeSupported is ignored; transpose capability is reported in MatMulFormatSupport.
+        virtual coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) = 0;
+
+        // Queries training support for the given accumulation component type (typically Float16 or Float32).
+        // See TrainingFormatSupport for details on what each flag means.
+        virtual coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(coopvec::DataType componentType) = 0;
 
         // Calculates and returns the on-device size for a CoopVec matrix of the given dimensions, type and layout.
         virtual size_t getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns) = 0;

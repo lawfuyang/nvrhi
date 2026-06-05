@@ -315,7 +315,7 @@ namespace nvrhi::d3d12
         }
     }
 
-#if NVRHI_D3D12_WITH_COOPVEC
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
     D3D12_LINEAR_ALGEBRA_DATATYPE convertCoopVecDataType(coopvec::DataType type)
     {
         switch (type)
@@ -325,9 +325,21 @@ namespace nvrhi::d3d12
         case coopvec::DataType::SInt8:
             return D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
         case coopvec::DataType::UInt8Packed:
+#if NVRHI_D3D12_WITH_LINALG
+            // Not support in 720
+            utils::InvalidEnum();
+            return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
+#else
             return D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED;
+#endif
         case coopvec::DataType::SInt8Packed:
+#if NVRHI_D3D12_WITH_LINALG
+            // Not support in 720
+            utils::InvalidEnum();
+            return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
+#else
             return D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED;
+#endif
         case coopvec::DataType::UInt16:
             return D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16;
         case coopvec::DataType::SInt16:
@@ -337,9 +349,17 @@ namespace nvrhi::d3d12
         case coopvec::DataType::SInt32:
             return D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32;
         case coopvec::DataType::FloatE4M3:
+#if NVRHI_D3D12_WITH_LINALG
+            return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN;
+#else
             return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3;
+#endif
         case coopvec::DataType::FloatE5M2:
+#if NVRHI_D3D12_WITH_LINALG
+            return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2;
+#else
             return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2;
+#endif
         case coopvec::DataType::Float16:
             return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
         case coopvec::DataType::Float32:
@@ -358,10 +378,12 @@ namespace nvrhi::d3d12
             return coopvec::DataType::UInt8;
         case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
             return coopvec::DataType::SInt8;
+#if !NVRHI_D3D12_WITH_LINALG
         case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8_T4_PACKED:
             return coopvec::DataType::UInt8Packed;
         case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8_T4_PACKED:
             return coopvec::DataType::SInt8Packed;
+#endif
         case D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
             return coopvec::DataType::UInt16;
         case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
@@ -370,10 +392,17 @@ namespace nvrhi::d3d12
             return coopvec::DataType::UInt32;
         case D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
             return coopvec::DataType::SInt32;
+#if NVRHI_D3D12_WITH_LINALG
+        case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN:
+            return coopvec::DataType::FloatE4M3;
+        case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2:
+            return coopvec::DataType::FloatE5M2;
+#else
         case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E4M3:
             return coopvec::DataType::FloatE4M3;
         case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT_E5M2:
             return coopvec::DataType::FloatE5M2;
+#endif
         case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
             return coopvec::DataType::Float16;
         case D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:

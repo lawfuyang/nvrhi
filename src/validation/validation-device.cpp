@@ -2310,6 +2310,16 @@ namespace nvrhi::validation
         return m_Device->queryCoopVecFeatures();
     }
 
+    coopvec::MatMulFormatSupport DeviceWrapper::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
+    {
+        return m_Device->queryCoopVecMatMulFormatSupport(combination);
+    }
+
+    coopvec::TrainingFormatSupport DeviceWrapper::queryCoopVecTrainingFormatSupport(coopvec::DataType componentType)
+    {
+        return m_Device->queryCoopVecTrainingFormatSupport(componentType);
+    }
+
     size_t DeviceWrapper::getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns)
     {
         if (!m_Device->queryFeatureSupport(Feature::CooperativeVectorInferencing))
