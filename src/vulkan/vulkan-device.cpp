@@ -91,11 +91,12 @@ namespace nvrhi::vulkan
             { VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME, &m_Context.extensions.EXT_mutable_descriptor_type },
             { VK_NV_COOPERATIVE_VECTOR_EXTENSION_NAME, &m_Context.extensions.NV_cooperative_vector },
             { VK_NV_RAY_TRACING_LINEAR_SWEPT_SPHERES_EXTENSION_NAME, &m_Context.extensions.NV_ray_tracing_linear_swept_spheres },
+            { VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME, &m_Context.extensions.EXT_depth_clip_enable },
+            // This section must be last for trailing commas.
 #if NVRHI_WITH_AFTERMATH
             { VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME, &m_Context.extensions.NV_device_diagnostic_checkpoints },
             { VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME, &m_Context.extensions.NV_device_diagnostics_config }
 #endif
-            { VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME, &m_Context.extensions.EXT_depth_clip_enable }
         };
 
         // parse the extension/layer lists and figure out which extensions are enabled
