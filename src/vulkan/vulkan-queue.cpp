@@ -136,7 +136,7 @@ namespace nvrhi::vulkan
             waitStageArray[i] = vk::PipelineStageFlagBits::eTopOfPipe;
         }
 
-        m_LastSubmittedID++;
+        uint64_t const submissionID = ++m_LastSubmittedID;
 
         for (size_t i = 0; i < numCmd; i++)
         {
@@ -159,17 +159,18 @@ namespace nvrhi::vulkan
                 lifetimeTracker = &m_LifetimeTracker;
             }
 
+            commandBuffer->submissionID = submissionID;
             lifetimeTracker->push(commandBuffer);
 
             for (const auto& buffer : commandBuffer->referencedStagingBuffers)
             {
                 buffer->lastUseQueue = m_QueueID;
-                buffer->lastUseCommandListID = m_LastSubmittedID;
+                buffer->lastUseCommandListID = submissionID;
             }
         }
         
         m_SignalSemaphores.push_back(trackingSemaphore);
-        m_SignalSemaphoreValues.push_back(m_LastSubmittedID);
+        m_SignalSemaphoreValues.push_back(submissionID);
 
         auto timelineSemaphoreInfo = vk::TimelineSemaphoreSubmitInfo()
             .setSignalSemaphoreValueCount(uint32_t(m_SignalSemaphoreValues.size()))
@@ -204,7 +205,7 @@ namespace nvrhi::vulkan
         m_SignalSemaphores.clear();
         m_SignalSemaphoreValues.clear();
         
-        return m_LastSubmittedID;
+        return submissionID;
     }
 
     void Queue::updateTextureTileMappings(ITexture* _texture, const TextureTilesMapping* tileMappings, uint32_t numTileMappings)
