@@ -328,7 +328,7 @@ namespace nvrhi::vulkan
         if (!queue)
             return nullptr;
 
-		return CommandListLifetimeTrackerHandle::Create(new CommandListLifetimeTracker(m_Context, queue));
+        return CommandListLifetimeTrackerHandle::Create(new CommandListLifetimeTracker(m_Context, queue));
     }
 
     void Device::runGarbageCollection()
