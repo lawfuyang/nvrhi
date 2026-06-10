@@ -3147,11 +3147,10 @@ namespace nvrhi
     // Each thread that submits work to the GPU (calls IDevice::executeCommandList[s]) should own its own command list tracker
     // for each queue it submits work to.
     // - DX11: Multithreaded work submission is not supported.
-    // - DX12: A lifetime tracker can be optionally specified when creating a command list. After submitting a command list,
-	//   internal command lists and their referenced resources will be held by the lifetime tracker until work has finished
-	//   execution on the GPU. Execute runGarbageCollection frequently to poll the GPU and release resources when possible.
+    // - DX12, Vulkan: A lifetime tracker can be optionally specified when creating a command list. After submitting a command list,
+    //   internal command lists and their referenced resources will be held by the lifetime tracker until work has finished
+    //   execution on the GPU. Execute runGarbageCollection frequently to poll the GPU and release resources when possible.
     //   If no lifetime tracker is specified, the Device will add the command list to its own internal lifetime trackers.
-    // - Vulkan: Not yet implemented.
     class ICommandListLifetimeTracker : public IResource
     {
     public:
