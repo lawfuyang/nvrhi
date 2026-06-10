@@ -316,6 +316,8 @@ namespace nvrhi::vulkan
 
     void Queue::runGarbageCollection()
     {
+        std::lock_guard lockGuard(m_Mutex);
+        
         m_LifetimeTracker.runGarbageCollection();
     }
 

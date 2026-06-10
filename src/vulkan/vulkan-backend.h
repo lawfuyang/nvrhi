@@ -281,7 +281,7 @@ namespace nvrhi::vulkan
         CommandQueue m_QueueID;
         uint32_t m_QueueFamilyIndex = uint32_t(-1);
 
-        std::mutex m_Mutex;
+        std::recursive_mutex m_Mutex;
         std::vector<vk::Semaphore> m_WaitSemaphores;
         std::vector<uint64_t> m_WaitSemaphoreValues;
         std::vector<vk::Semaphore> m_SignalSemaphores;
