@@ -913,7 +913,9 @@ namespace nvrhi::d3d12
     }
 
     // Queries the D3D12 matrix multiplication path for a single CoopVec type combination.
-    // On the linalg path, inputType must match inputInterpretation.
+    // The Linear Algebra query only describes the shader-visible vector input type.
+    // Raw input storage conversion, when inputType differs from inputInterpretation,
+    // is handled by shader code before the matrix operation.
     coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
     {
         coopvec::MatMulFormatSupport result{};
@@ -921,9 +923,6 @@ namespace nvrhi::d3d12
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
 #if NVRHI_D3D12_WITH_LINALG
         if (!m_LinearAlgebraSupported)
-            return result;
-
-        if (combination.inputType != combination.inputInterpretation)
             return result;
 
         if (!isLinearAlgebraDataTypeSupported(combination.inputInterpretation) ||
