@@ -64,7 +64,7 @@ namespace nvrhi
 {
     // Version of the public API provided by NVRHI.
     // Increment this when any changes to the API are made.
-    static constexpr uint32_t c_HeaderVersion = 24;
+    static constexpr uint32_t c_HeaderVersion = 25;
 
     // Verifies that the version of the implementation matches the version of the header.
     // Returns true if they match. Use this when initializing apps using NVRHI as a shared library.
@@ -354,26 +354,28 @@ namespace nvrhi
         VertexBuffer                = 0x00000004,
         IndexBuffer                 = 0x00000008,
         IndirectArgument            = 0x00000010,
-        ShaderResource              = 0x00000020,
-        UnorderedAccess             = 0x00000040,
-        RenderTarget                = 0x00000080,
-        DepthWrite                  = 0x00000100,
-        DepthRead                   = 0x00000200,
-        StreamOut                   = 0x00000400,
-        CopyDest                    = 0x00000800,
-        CopySource                  = 0x00001000,
-        ResolveDest                 = 0x00002000,
-        ResolveSource               = 0x00004000,
-        Present                     = 0x00008000,
-        AccelStructRead             = 0x00010000,
-        AccelStructWrite            = 0x00020000,
-        AccelStructBuildInput       = 0x00040000,
-        AccelStructBuildBlas        = 0x00080000,
-        ShadingRateSurface          = 0x00100000,
-        OpacityMicromapWrite        = 0x00200000,
-        OpacityMicromapBuildInput   = 0x00400000,
-        ConvertCoopVecMatrixInput   = 0x00800000,
-        ConvertCoopVecMatrixOutput  = 0x01000000,
+        PixelShaderResource         = 0x00000020,
+        NonPixelShaderResource      = 0x00000040,
+        ShaderResource              = PixelShaderResource | NonPixelShaderResource,
+        UnorderedAccess             = 0x00000080,
+        RenderTarget                = 0x00000100,
+        DepthWrite                  = 0x00000200,
+        DepthRead                   = 0x00000400,
+        StreamOut                   = 0x00000800,
+        CopyDest                    = 0x00001000,
+        CopySource                  = 0x00002000,
+        ResolveDest                 = 0x00004000,
+        ResolveSource               = 0x00008000,
+        Present                     = 0x00010000,
+        AccelStructRead             = 0x00020000,
+        AccelStructWrite            = 0x00040000,
+        AccelStructBuildInput       = 0x00080000,
+        AccelStructBuildBlas        = 0x00100000,
+        ShadingRateSurface          = 0x00200000,
+        OpacityMicromapWrite        = 0x00400000,
+        OpacityMicromapBuildInput   = 0x00800000,
+        ConvertCoopVecMatrixInput   = 0x01000000,
+        ConvertCoopVecMatrixOutput  = 0x02000000,
     };
 
     NVRHI_ENUM_CLASS_FLAG_OPERATORS(ResourceStates)

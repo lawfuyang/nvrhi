@@ -451,4 +451,16 @@ namespace nvrhi
 
         return tracking;
     }
+
+    ResourceStates getShaderResourceStateForBindingLayout(IBindingLayout* bindingLayout)
+    {
+        ShaderType const visibility = bindingLayout->getDesc()->visibility;
+        
+        bool const hasPixelShader = (visibility & ShaderType::Pixel) != 0;
+
+        return hasPixelShader
+            ? ResourceStates::ShaderResource
+            : ResourceStates::NonPixelShaderResource;
+    }
+
 } // namespace nvrhi

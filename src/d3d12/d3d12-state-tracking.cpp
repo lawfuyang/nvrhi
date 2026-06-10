@@ -33,6 +33,8 @@ namespace nvrhi::d3d12
             return; // is bindless
 
         BindingSet* bindingSet = checked_cast<BindingSet*>(_bindingSet);
+        
+        ResourceStates const shaderResourceState = getShaderResourceStateForBindingLayout(bindingSet->layout);
 
         for (auto bindingIndex : bindingSet->bindingsThatNeedTransitions)
         {
@@ -41,7 +43,7 @@ namespace nvrhi::d3d12
             switch (binding.type)  // NOLINT(clang-diagnostic-switch-enum)
             {
             case ResourceType::Texture_SRV:
-                requireTextureState(checked_cast<ITexture*>(binding.resourceHandle), binding.subresources, ResourceStates::ShaderResource);
+                requireTextureState(checked_cast<ITexture*>(binding.resourceHandle), binding.subresources, shaderResourceState);
                 break;
 
             case ResourceType::Texture_UAV:
@@ -51,7 +53,7 @@ namespace nvrhi::d3d12
             case ResourceType::TypedBuffer_SRV:
             case ResourceType::StructuredBuffer_SRV:
             case ResourceType::RawBuffer_SRV:
-                requireBufferState(checked_cast<IBuffer*>(binding.resourceHandle), ResourceStates::ShaderResource);
+                requireBufferState(checked_cast<IBuffer*>(binding.resourceHandle), shaderResourceState);
                 break;
 
             case ResourceType::TypedBuffer_UAV:
