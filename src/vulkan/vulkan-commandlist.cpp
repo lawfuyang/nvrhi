@@ -122,8 +122,7 @@ namespace nvrhi::vulkan
     void CommandList::executed(Queue& queue, const uint64_t submissionID)
     {
         assert(m_CurrentCmdBuf);
-
-        m_CurrentCmdBuf->submissionID = submissionID;
+        assert(m_CurrentCmdBuf->submissionID == submissionID); // This is set in Queue::submit
 
         const CommandQueue queueID = queue.getQueueID();
         const uint64_t recordingID = m_CurrentCmdBuf->recordingID;

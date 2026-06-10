@@ -323,13 +323,22 @@ namespace nvrhi::vulkan
         return true;
     }
 
+    CommandListLifetimeTrackerHandle Device::createCommandListLifetimeTracker(CommandQueue executionQueue)
+    {
+        Queue* const queue = getQueue(executionQueue);
+        if (!queue)
+            return nullptr;
+
+        return CommandListLifetimeTrackerHandle::Create(new CommandListLifetimeTracker(m_Context, queue));
+    }
+
     void Device::runGarbageCollection()
     {
         for (auto& m_Queue : m_Queues)
         {
             if (m_Queue)
             {
-                m_Queue->retireCommandBuffers();
+                m_Queue->runGarbageCollection();
             }
         }
     }
