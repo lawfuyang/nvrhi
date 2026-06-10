@@ -125,7 +125,7 @@ namespace nvrhi::d3d12
     Queue::Queue(const Context& context, ID3D12CommandQueue* queue, CommandListLifetimeTrackerHandle&& lifetimeTracker)
         : queue(queue)
         , m_Context(context)
-		, lifetimeTracker(std::move(lifetimeTracker))
+        , lifetimeTracker(std::move(lifetimeTracker))
     {
         assert(queue);
         assert(this->lifetimeTracker);
@@ -150,10 +150,10 @@ namespace nvrhi::d3d12
     }
 
     CommandListLifetimeTracker::CommandListLifetimeTracker(Device* device, const Context& context, DeviceResources& resources, CommandQueue executionQueue)
-	    : m_Device(device)
-		, m_Context(context)
-		, m_Resources(resources)
-		, m_ExecutionQueue(executionQueue)
+        : m_Device(device)
+        , m_Context(context)
+        , m_Resources(resources)
+        , m_ExecutionQueue(executionQueue)
     {
     }
 
@@ -515,7 +515,7 @@ namespace nvrhi::d3d12
 
     CommandListLifetimeTrackerHandle Device::createCommandListLifetimeTracker(CommandQueue executionQueue)
     {
-		return CommandListLifetimeTrackerHandle::Create(new CommandListLifetimeTracker(this, m_Context, m_Resources, executionQueue));
+        return CommandListLifetimeTrackerHandle::Create(new CommandListLifetimeTracker(this, m_Context, m_Resources, executionQueue));
     }
 
     Object RootSignature::getNativeObject(ObjectType objectType)
