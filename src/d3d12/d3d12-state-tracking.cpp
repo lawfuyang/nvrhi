@@ -121,7 +121,9 @@ namespace nvrhi::d3d12
 
                 if (barrier.texture->isSamplerFeedback)
                 {
-                    resource = static_cast<const SamplerFeedbackTexture*>(barrier.texture)->resource;
+                    SamplerFeedbackTexture const* samplerFeedback = static_cast<SamplerFeedbackTexture const*>(barrier.texture);
+                    texture = checked_cast<Texture*>(samplerFeedback->pairedTexture.Get());
+                    resource = samplerFeedback->resource;
                 }
                 else
                 {
