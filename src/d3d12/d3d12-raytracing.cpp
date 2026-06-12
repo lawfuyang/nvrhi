@@ -2067,7 +2067,7 @@ namespace nvrhi::d3d12
 #else
         D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO ASPreBuildInfo = {};
 
-        if (!checked_cast<d3d12::Device*>(m_Device)->GetAccelStructPreBuildInfo(ASPreBuildInfo, as->getDesc()))
+        if (!m_Device->GetAccelStructPreBuildInfo(ASPreBuildInfo, as->getDesc()))
             return;
 
         if (ASPreBuildInfo.ResultDataMaxSizeInBytes > as->dataBuffer->desc.byteSize)

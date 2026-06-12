@@ -342,7 +342,7 @@ namespace nvrhi::d3d12
         {
             hr = m_Context.device->CreateReservedResource(
                 &texture->resourceDesc,
-                convertResourceStates(d.initialState),
+                D3D12_RESOURCE_STATE_COMMON,
                 d.useClearValue ? &clearValue : nullptr,
                 IID_PPV_ARGS(&texture->resource));
         }
@@ -354,7 +354,7 @@ namespace nvrhi::d3d12
                 &heapProps,
                 heapFlags,
                 &texture->resourceDesc,
-                convertResourceStates(d.initialState),
+                D3D12_RESOURCE_STATE_COMMON,
                 d.useClearValue ? &clearValue : nullptr,
                 IID_PPV_ARGS(&texture->resource));
         }
@@ -427,7 +427,7 @@ namespace nvrhi::d3d12
         HRESULT hr = m_Context.device->CreatePlacedResource(
             heap->heap, offset,
             &texture->resourceDesc,
-            convertResourceStates(texture->desc.initialState),
+            D3D12_RESOURCE_STATE_COMMON,
             texture->desc.useClearValue ? &clearValue : nullptr,
             IID_PPV_ARGS(&texture->resource));
 
