@@ -177,23 +177,25 @@ namespace nvrhi::d3d12
                 m_D3DBufferBarriers.push_back(d3dbarrier);
             }
 
-            D3D12_BARRIER_GROUP barrierGroup{};
+            static_vector<D3D12_BARRIER_GROUP, 2> barrierGroups;
 
             if (!m_D3DTextureBarriers.empty())
             {
+                D3D12_BARRIER_GROUP& barrierGroup = barrierGroups.emplace_back();
                 barrierGroup.Type = D3D12_BARRIER_TYPE_TEXTURE;
                 barrierGroup.NumBarriers = uint32_t(m_D3DTextureBarriers.size());
                 barrierGroup.pTextureBarriers = m_D3DTextureBarriers.data();
-                m_ActiveCommandList->commandList7->Barrier(1, &barrierGroup);
             }
             
             if (!m_D3DBufferBarriers.empty())
             {
+                D3D12_BARRIER_GROUP& barrierGroup = barrierGroups.emplace_back();
                 barrierGroup.Type = D3D12_BARRIER_TYPE_BUFFER;
                 barrierGroup.NumBarriers = uint32_t(m_D3DBufferBarriers.size());
                 barrierGroup.pBufferBarriers = m_D3DBufferBarriers.data();
-                m_ActiveCommandList->commandList7->Barrier(1, &barrierGroup);
             }
+            
+            m_ActiveCommandList->commandList7->Barrier(uint32_t(barrierGroups.size()), barrierGroups.data());
 
             m_StateTracker.clearBarriers();
             return;
