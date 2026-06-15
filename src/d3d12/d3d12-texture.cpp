@@ -911,7 +911,7 @@ namespace nvrhi::d3d12
             &heapPropsDefault,
             D3D12_HEAP_FLAG_NONE,
             &rdFeedback,
-            convertResourceStates(desc.initialState),
+            D3D12_RESOURCE_STATE_COMMON,
             nullptr, // clear value
             nullptr,
             IID_PPV_ARGS(&texture->resource));
@@ -1175,6 +1175,13 @@ namespace nvrhi::d3d12
         }
 
         commitDescriptorHeaps();
+
+        if (m_EnableAutomaticBarriers)
+        {
+            requireSamplerFeedbackTextureState(texture, nvrhi::ResourceStates::UnorderedAccess);
+            m_BindingStatesDirty = true;
+        }
+        commitBarriers();
 
         const UINT clearValue[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
         m_ActiveCommandList->commandList->ClearUnorderedAccessViewUint(

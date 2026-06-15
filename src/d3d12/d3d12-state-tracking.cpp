@@ -70,6 +70,10 @@ namespace nvrhi::d3d12
                 requireBufferState(checked_cast<AccelStruct*>(binding.resourceHandle)->dataBuffer, ResourceStates::AccelStructRead);
                 break;
 
+            case ResourceType::SamplerFeedbackTexture_UAV:
+                requireSamplerFeedbackTextureState(checked_cast<ISamplerFeedbackTexture*>(binding.resourceHandle), ResourceStates::UnorderedAccess);
+                break;
+
             default:
                 // do nothing
                 break;
