@@ -3058,7 +3058,8 @@ namespace nvrhi
         VirtualResources,
         WaveLaneCountMinMax,
         CooperativeVectorInferencing,
-        CooperativeVectorTraining
+        CooperativeVectorTraining,
+        EnhancedBarriers, // DX12 only feature
     };
 
     enum class MessageSeverity : uint8_t

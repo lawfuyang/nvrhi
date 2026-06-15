@@ -255,9 +255,11 @@ namespace nvrhi::d3d12
             m_SamplerFeedbackSupported = m_Options7.SamplerFeedbackTier >= D3D12_SAMPLER_FEEDBACK_TIER_0_9;
         }
 
-        if (SUCCEEDED(m_Context.device->QueryInterface(&m_Context.device10)) && hasOptions12)
+        if (SUCCEEDED(m_Context.device->QueryInterface(&m_Context.device10)) && hasOptions12 && desc.enableEnhancedBarriers)
         {
+#ifndef NVRHI_WITH_RTXMU // RTXMU doesn't implement Enhanced Barriers, and we need to interop with it.
             m_EnhancedBarriersSupported = m_Options12.EnhancedBarriersSupported;
+#endif
         }
 
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
@@ -843,6 +845,8 @@ namespace nvrhi::d3d12
 #else
             return m_CoopVecTrainingSupported;
 #endif
+        case Feature::EnhancedBarriers:
+            return m_EnhancedBarriersSupported;
         default:
             return false;
         }
