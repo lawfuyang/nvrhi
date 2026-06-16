@@ -288,20 +288,21 @@ namespace nvrhi::d3d12
     {
     public:
         const TextureDesc desc;
-        const D3D12_RESOURCE_DESC resourceDesc;
+        const D3D12_RESOURCE_DESC1 resourceDesc;
         RefCountPtr<ID3D12Resource> resource;
         uint8_t planeCount = 1;
         HANDLE sharedHandle = nullptr;
         HeapHandle heap;
 
 
-        Texture(const Context& context, DeviceResources& resources, TextureDesc desc, const D3D12_RESOURCE_DESC& resourceDesc)
+        Texture(const Context& context, DeviceResources& resources, TextureDesc desc, const D3D12_RESOURCE_DESC1& resourceDesc)
             : TextureStateExtension(this->desc)
             , desc(std::move(desc))
             , resourceDesc(resourceDesc)
             , m_Context(context)
             , m_Resources(resources)
         {
+            TextureStateExtension::stateInitialized = true;
         }
 
         ~Texture() override;
@@ -375,7 +376,7 @@ namespace nvrhi::d3d12
     {
     public:
         TextureDesc desc;
-        D3D12_RESOURCE_DESC resourceDesc{};
+        D3D12_RESOURCE_DESC1 resourceDesc{};
         RefCountPtr<Buffer> buffer;
         CpuAccessMode cpuAccess = CpuAccessMode::None;
         std::vector<UINT64> subresourceOffsets;
@@ -424,6 +425,7 @@ namespace nvrhi::d3d12
             , pairedTexture(pairedTexture)
             , m_Context(context)
         {
+            TextureStateExtension::stateInitialized = true;
             TextureStateExtension::isSamplerFeedback = true;
         }
 
