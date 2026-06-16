@@ -434,11 +434,25 @@ namespace nvrhi::d3d12
     {
         Texture* texture = checked_cast<Texture*>(_texture);
         
-        D3D12_RESOURCE_ALLOCATION_INFO allocInfo = m_Context.device->GetResourceAllocationInfo(1, 1, reinterpret_cast<D3D12_RESOURCE_DESC const*>(&texture->resourceDesc));
+        MemoryRequirements memReq{};
 
-        MemoryRequirements memReq;
-        memReq.alignment = allocInfo.Alignment;
-        memReq.size = allocInfo.SizeInBytes;
+        if (m_EnhancedBarriersSupported)
+        {
+            D3D12_RESOURCE_ALLOCATION_INFO1 allocInfo{};
+            m_Context.device8->GetResourceAllocationInfo2(1, 1, &texture->resourceDesc, &allocInfo);
+
+            memReq.alignment = allocInfo.Alignment;
+            memReq.size = allocInfo.SizeInBytes;
+        }
+        else
+        {
+            D3D12_RESOURCE_ALLOCATION_INFO allocInfo = m_Context.device->GetResourceAllocationInfo(
+                1, 1, reinterpret_cast<D3D12_RESOURCE_DESC const*>(&texture->resourceDesc));
+            
+            memReq.alignment = allocInfo.Alignment;
+            memReq.size = allocInfo.SizeInBytes;
+        }
+
         return memReq;
     }
 
