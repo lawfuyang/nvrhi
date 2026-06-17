@@ -33,6 +33,7 @@ namespace nvrhi::d3d12
         , m_Resources(resources)
         , m_Device(device)
         , m_Queue(device->getQueue(params.queueType))
+		, m_LifetimeTracker(params.lifetimeTracker)
         , m_UploadManager(context, m_Queue, params.uploadChunkSize, 0, false)
         , m_DxrScratchManager(context, m_Queue, params.scratchChunkSize, params.scratchMaxMemory, true)
         , m_StateTracker(context.messageCallback)
@@ -104,7 +105,8 @@ namespace nvrhi::d3d12
 
         commandList->commandList->QueryInterface(IID_PPV_ARGS(&commandList->commandList4));
         commandList->commandList->QueryInterface(IID_PPV_ARGS(&commandList->commandList6));
-#if NVRHI_D3D12_WITH_COOPVEC
+        commandList->commandList->QueryInterface(IID_PPV_ARGS(&commandList->commandList7));
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
         commandList->commandList->QueryInterface(IID_PPV_ARGS(&commandList->commandListPreview));
 #endif
 
@@ -374,13 +376,17 @@ namespace nvrhi::d3d12
         m_UploadManager.submitChunks(m_RecordingVersion, submittedVersion);
         m_DxrScratchManager.submitChunks(m_RecordingVersion, submittedVersion);
         m_RecordingVersion = 0;
-        
+
+        if (m_LifetimeTracker)
+            checked_cast<CommandListLifetimeTracker*>(m_LifetimeTracker.Get())->push(instance);
+        else
+			checked_cast<CommandListLifetimeTracker*>(pQueue->lifetimeTracker.Get())->push(instance);
         return instance;
     }
 
     void CommandList::convertCoopVecMatrices(coopvec::ConvertMatrixLayoutDesc const* convertDescs, size_t numDescs)
     {
-#if NVRHI_D3D12_WITH_COOPVEC
+#if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
         if (numDescs == 0)
             return;
             

@@ -126,7 +126,18 @@ namespace nvrhi::d3d12
                     if (!found)
                     {
                         // Create a default sampler
-                        D3D12_SAMPLER_DESC samplerDesc = {};
+                        D3D12_SAMPLER_DESC samplerDesc = {
+                            D3D12_FILTER_MIN_MAG_MIP_POINT,
+                            D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+                            D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+                            D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+                            0.f,
+                            0,
+                            D3D12_COMPARISON_FUNC_NONE,
+                            {},
+                            0.f,
+                            D3D12_FLOAT32_MAX
+                        };
                         m_Context.device->CreateSampler(&samplerDesc, descriptorHandle);
                     }
                 }
@@ -297,7 +308,8 @@ namespace nvrhi::d3d12
                             texture->createUAV(descriptorHandle.ptr);
                             pResource = texture;
 
-                            // TODO: Automatic state transition into Unordered Access here
+                            assert(!texture->permanentState); // Sampler feedback textures cannot and shouldn't have a permanent state
+                            bindingsThatNeedTransitions.push_back(static_cast<uint16_t>(bindingIndex));
 
                             hasUavBindings = true;
                             found = true;
@@ -383,11 +395,20 @@ namespace nvrhi::d3d12
         m_Resources.samplerHeap.releaseDescriptors(descriptorTableSamplers, layout->descriptorTableSizeSamplers);
     }
 
-    DescriptorTable::~DescriptorTable()
+    bool DescriptorTable::isSamplerTable() const
     {
         const BindlessLayoutDesc* bindlessDesc = layout ? layout->getBindlessDesc() : nullptr;
-        const bool isSamplerTable = bindlessDesc && bindlessDesc->layoutType == BindlessLayoutDesc::LayoutType::MutableSampler;
-        StaticDescriptorHeap& heap = isSamplerTable ? m_Resources.samplerHeap : m_Resources.shaderResourceViewHeap;
+        return bindlessDesc && bindlessDesc->layoutType == BindlessLayoutDesc::LayoutType::MutableSampler;
+    }
+
+    StaticDescriptorHeap& DescriptorTable::getDescriptorHeap() const
+    {
+        return isSamplerTable() ? m_Resources.samplerHeap : m_Resources.shaderResourceViewHeap;
+    }
+
+    DescriptorTable::~DescriptorTable()
+    {
+        StaticDescriptorHeap& heap = getDescriptorHeap();
 
         heap.releaseDescriptors(firstDescriptor, capacity);
     }
@@ -859,16 +880,14 @@ namespace nvrhi::d3d12
         if (binding.slot >= descriptorTable->capacity)
             return false;
 
-        const BindlessLayoutDesc* bindlessDesc = descriptorTable->layout ? descriptorTable->layout->getBindlessDesc() : nullptr;
-        const bool isSamplerTable = bindlessDesc && bindlessDesc->layoutType == BindlessLayoutDesc::LayoutType::MutableSampler;
-        StaticDescriptorHeap& heap = isSamplerTable ? m_Resources.samplerHeap : m_Resources.shaderResourceViewHeap;
+        StaticDescriptorHeap& heap = descriptorTable->getDescriptorHeap();
 
         D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle = heap.getCpuHandle(descriptorTable->firstDescriptor + binding.slot);
 
         switch (binding.type)
         {
         case ResourceType::None:
-            if (isSamplerTable)
+            if (descriptorTable->isSamplerTable())
                 utils::InvalidEnum(); // Cannot have a null sampler in D3D12
             else
                 Buffer::createNullSRV(descriptorHandle.ptr, Format::UNKNOWN, m_Context);
@@ -941,10 +960,8 @@ namespace nvrhi::d3d12
         if (newSize == descriptorTable->capacity)
             return;
 
-        const BindlessLayoutDesc* bindlessDesc = descriptorTable->layout ? descriptorTable->layout->getBindlessDesc() : nullptr;
-        const bool isSamplerTable = bindlessDesc && bindlessDesc->layoutType == BindlessLayoutDesc::LayoutType::MutableSampler;
-        StaticDescriptorHeap& heap = isSamplerTable ? m_Resources.samplerHeap : m_Resources.shaderResourceViewHeap;
-        const D3D12_DESCRIPTOR_HEAP_TYPE heapType = isSamplerTable ? D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER : D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        StaticDescriptorHeap& heap = descriptorTable->getDescriptorHeap();
+        const D3D12_DESCRIPTOR_HEAP_TYPE heapType = heap.getHeapType();
 
         if (newSize < descriptorTable->capacity)
         {

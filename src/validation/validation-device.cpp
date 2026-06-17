@@ -2285,6 +2285,11 @@ namespace nvrhi::validation
         return m_Device->waitForIdle();
     }
 
+    CommandListLifetimeTrackerHandle DeviceWrapper::createCommandListLifetimeTracker(CommandQueue executionQueue)
+    {
+        return m_Device->createCommandListLifetimeTracker(executionQueue);
+    }
+
     void DeviceWrapper::runGarbageCollection()
     {
         m_Device->runGarbageCollection();
@@ -2303,6 +2308,16 @@ namespace nvrhi::validation
     coopvec::DeviceFeatures DeviceWrapper::queryCoopVecFeatures()
     {
         return m_Device->queryCoopVecFeatures();
+    }
+
+    coopvec::MatMulFormatSupport DeviceWrapper::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination)
+    {
+        return m_Device->queryCoopVecMatMulFormatSupport(combination);
+    }
+
+    coopvec::TrainingFormatSupport DeviceWrapper::queryCoopVecTrainingFormatSupport(coopvec::DataType componentType)
+    {
+        return m_Device->queryCoopVecTrainingFormatSupport(componentType);
     }
 
     size_t DeviceWrapper::getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns)

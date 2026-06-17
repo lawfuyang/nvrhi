@@ -69,11 +69,26 @@ To include NVRHI into a CMake project as static libraries:
 
 To build NVRHI as a shared library (DLL or .so):
 
-1. Clone this repository recursively (including submodules).
+1. Clone this repository.
 2. Generate the project with CMake:
 	* Set the `NVRHI_BUILD_SHARED` variable to `ON`.
 	* Make sure to set the target platform to a 64-bit one. 32-bit builds are not supported.
 3. Build and install as normal.
+
+### Configuring the Vulkan and DirectX header libraries
+
+NVRHI depends on the [Vulkan-Headers](https://github.com/KhronosGroup/Vulkan-Headers) and [DirectX-Headers](https://github.com/microsoft/DirectX-Headers) libraries for platform headers (where applicable). These libraries can be provided externally by importing them into the CMake project before NVRHI, or they can be downloaded automatically at project configuration time using CMake FetchContent. This behavior is controlled with the following CMake variables:
+
+- `NVRHI_FETCH_VULKAN_HEADERS` enables downloading of the Vulkan-Headers library (otherwise it must be provided externally if Vulkan is enabled)
+	* `NVRHI_VULKAN_HEADERS_GIT_REPOSITORY` sets the git repository URL for Vulkan-Headers
+	* `NVRHI_VULKAN_HEADERS_GIT_TAG` sets the git tag or commit hash for Vulkan-Headers
+	* `NVRHI_VULKAN_HEADERS_FETCH_DIR` sets the path that Vulkan-Headers will be downloaded to - empty means the default location in `build/_deps`
+- `NVRHI_FETCH_DIRECTX_HEADERS` enables downloading of the DirectX-Headers library (otherwise it must be provided externally if Vulkan is enabled)
+	* `NVRHI_DIRECTX_HEADERS_GIT_REPOSITORY` sets the git repository URL for DirectX-Headers
+	* `NVRHI_DIRECTX_HEADERS_GIT_TAG` sets the git tag or commit hash for DirectX-Headers
+	* `NVRHI_DIRECTX_HEADERS_FETCH_DIR` sets the path that DirectX-Headers will be downloaded to - empty means the default location in `build/_deps`
+
+The default values of these configuration variables should be OK for most use cases.
 
 ## Using NVRHI in Applications
 
@@ -98,7 +113,11 @@ The following extensions are supported:
 
 ## RTXMU Integration
 
-NVRHI includes an optional integration of the [RTXMU](https://github.com/NVIDIA-RTX/RTXMU) library. The library is included as a git submodule, and can be enabled with the `NVRHI_WITH_RTXMU` CMake variable.
+NVRHI includes an optional integration of the [RTXMU](https://github.com/NVIDIA-RTX/RTXMU) library. The library is downloaded at project configuration time using CMake FetchContent when the `NVRHI_WITH_RTXMU` CMake variable is set to `ON`. Similar to the platform header libraries, the RTXMU dependency can be configured using the following CMake variables:
+
+- `NVRHI_RTXMU_GIT_REPOSITORY` sets the git repository URL for RTXMU
+- `NVRHI_RTXMU_GIT_TAG` sets the git tag or commit hash for RTXMU
+- `NVRHI_RTXMU_FETCH_DIR` sets the path that RTXMU will be downloaded to - empty means the default location in `build/_deps`
 
 When RTXMU integration is enabled, all bottom-level ray tracing acceleration structures (BLAS'es) are managed by that library. All built BLAS'es that have the `AllowCompaction` flag set are automatically compacted when `ICommandList::compactBottomLevelAccelStructs` method is called. No other configuration is necessary.
 

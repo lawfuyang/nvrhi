@@ -158,6 +158,7 @@ namespace nvrhi::vulkan
             bool NV_device_diagnostic_checkpoints = false;
             bool NV_device_diagnostics_config= false;
 #endif
+            bool EXT_depth_clip_enable = false;
         } extensions;
 
         vk::PhysicalDeviceProperties physicalDeviceProperties;
@@ -220,6 +221,25 @@ namespace nvrhi::vulkan
 
     typedef std::shared_ptr<TrackedCommandBuffer> TrackedCommandBufferPtr;
 
+    class Queue;
+    class CommandListLifetimeTracker final : public RefCounter<ICommandListLifetimeTracker>
+    {
+    public:
+        CommandListLifetimeTracker(const VulkanContext& context, Queue* queue);
+
+        // ICommandListTracker implementation
+        virtual void runGarbageCollection() override;
+
+        // Vulkan specific methods
+        void push(TrackedCommandBufferPtr commandBuffer);
+        Queue* getQueue() const { return m_Queue; }
+
+    private:
+        const VulkanContext& m_Context;
+        Queue* m_Queue;
+        std::list<TrackedCommandBufferPtr> m_CommandBuffersInFlight;
+    };
+
     // represents a hardware queue
     class Queue
     {
@@ -243,9 +263,7 @@ namespace nvrhi::vulkan
         void updateTextureTileMappings(ITexture* texture, const TextureTilesMapping* tileMappings, uint32_t numTileMappings);
 
         // retire any command buffers that have finished execution from the pending execution list
-        void retireCommandBuffers();
-
-        TrackedCommandBufferPtr getCommandBufferInFlight(uint64_t submissionID);
+        void runGarbageCollection();
 
         uint64_t updateLastFinishedID();
         uint64_t getLastSubmittedID() const { return m_LastSubmittedID; }
@@ -263,7 +281,7 @@ namespace nvrhi::vulkan
         CommandQueue m_QueueID;
         uint32_t m_QueueFamilyIndex = uint32_t(-1);
 
-        std::mutex m_Mutex;
+        std::recursive_mutex m_Mutex;
         std::vector<vk::Semaphore> m_WaitSemaphores;
         std::vector<uint64_t> m_WaitSemaphoreValues;
         std::vector<vk::Semaphore> m_SignalSemaphores;
@@ -274,8 +292,11 @@ namespace nvrhi::vulkan
         uint64_t m_LastFinishedID = 0;
 
         // tracks the list of command buffers in flight on this queue
-        std::list<TrackedCommandBufferPtr> m_CommandBuffersInFlight;
         std::list<TrackedCommandBufferPtr> m_CommandBuffersPool;
+        CommandListLifetimeTracker m_LifetimeTracker;
+
+        friend class CommandListLifetimeTracker;
+        void returnCommandBuffersToPool(std::list<TrackedCommandBufferPtr> const& commandBuffers);
     };
 
     class MemoryResource
@@ -1182,10 +1203,13 @@ namespace nvrhi::vulkan
         uint64_t executeCommandLists(ICommandList* const* pCommandLists, size_t numCommandLists, CommandQueue executionQueue = CommandQueue::Graphics) override;
         void queueWaitForCommandList(CommandQueue waitQueue, CommandQueue executionQueue, uint64_t instance) override;
         bool waitForIdle() override;
+        CommandListLifetimeTrackerHandle createCommandListLifetimeTracker(CommandQueue executionQueue) override;
         void runGarbageCollection() override;
         bool queryFeatureSupport(Feature feature, void* pInfo = nullptr, size_t infoSize = 0) override;
         FormatSupport queryFormatSupport(Format format) override;
         coopvec::DeviceFeatures queryCoopVecFeatures() override;
+        coopvec::MatMulFormatSupport queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo& combination) override;
+        coopvec::TrainingFormatSupport queryCoopVecTrainingFormatSupport(coopvec::DataType componentType) override;
         size_t getCoopVecMatrixSize(coopvec::DataType type, coopvec::MatrixLayout layout, int rows, int columns) override;
         Object getNativeQueue(ObjectType objectType, CommandQueue queue) override;
         IMessageCallback* getMessageCallback() override { return m_Context.messageCallback; }
@@ -1219,7 +1243,12 @@ namespace nvrhi::vulkan
 
         // array of submission queues
         std::array<std::unique_ptr<Queue>, uint32_t(CommandQueue::Count)> m_Queues;
-        
+
+        // Lazily populated on the first call to queryCoopVecMatMulFormatSupport or queryCoopVecFeatures.
+        mutable std::vector<vk::CooperativeVectorPropertiesNV> m_CoopVecMatMulProperties;
+        mutable bool m_CoopVecMatMulPropertiesPopulated = false;
+        void getCoopVecMatMulProperties() const;
+
         void *mapBuffer(IBuffer* b, CpuAccessMode flags, uint64_t offset, size_t size) const;
     };
 
@@ -1279,8 +1308,8 @@ namespace nvrhi::vulkan
 
         void setMeshletState(const MeshletState& state) override;
         void dispatchMesh(uint32_t groupsX, uint32_t groupsY = 1, uint32_t groupsZ = 1) override;
-        void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount) override; // [rlaw]: dispatchMeshIndirect
-        void dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount) override; // [rlaw]: dispatchMeshIndirectCount
+        void dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount) override;
+        void dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount) override;
 
         void setRayTracingState(const rt::State& state) override;
         void dispatchRays(const rt::DispatchRaysArguments& args) override;

@@ -362,6 +362,13 @@ namespace nvrhi::d3d11
         return true;
     }
 
+    CommandListLifetimeTrackerHandle Device::createCommandListLifetimeTracker(CommandQueue executionQueue)
+    {
+        (void)executionQueue;
+        m_Context.error("CommandListLifetimeTracker is not supported by the D3D11 backend.");
+        return nullptr;
+    }
+
     SamplerHandle Device::createSampler(const SamplerDesc& d)
     {
         D3D11_SAMPLER_DESC desc11;
@@ -416,7 +423,19 @@ namespace nvrhi::d3d11
         utils::NotSupported();
         return coopvec::DeviceFeatures();
     }
-    
+
+    coopvec::MatMulFormatSupport Device::queryCoopVecMatMulFormatSupport(const coopvec::MatMulFormatCombo&)
+    {
+        utils::NotSupported();
+        return coopvec::MatMulFormatSupport{};
+    }
+
+    coopvec::TrainingFormatSupport Device::queryCoopVecTrainingFormatSupport(coopvec::DataType)
+    {
+        utils::NotSupported();
+        return coopvec::TrainingFormatSupport{};
+    }
+
     size_t Device::getCoopVecMatrixSize(coopvec::DataType, coopvec::MatrixLayout, int, int)
     {
         utils::NotSupported();

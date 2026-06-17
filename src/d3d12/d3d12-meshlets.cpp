@@ -229,7 +229,7 @@ namespace nvrhi::d3d12
 
         const bool updatePipeline = !m_CurrentMeshletStateValid || m_CurrentMeshletState.pipeline != state.pipeline;
         const bool updateIndirectParams = !m_CurrentMeshletStateValid || m_CurrentMeshletState.indirectParams != state.indirectParams;
-        const bool updateIndirectCountBuffer = !m_CurrentMeshletStateValid || m_CurrentMeshletState.indirectCountBuffer != state.indirectCountBuffer; // [rlaw]: support for indirect count buffer
+        const bool updateIndirectCountBuffer = !m_CurrentMeshletStateValid || m_CurrentMeshletState.indirectCountBuffer != state.indirectCountBuffer;
 
         const bool updateViewports = !m_CurrentMeshletStateValid ||
             arraysAreDifferent(m_CurrentMeshletState.viewport.viewports, state.viewport.viewports) ||
@@ -281,7 +281,7 @@ namespace nvrhi::d3d12
         
         setGraphicsBindings(state.bindings, bindingUpdateMask,
             state.indirectParams, updateIndirectParams,
-            state.indirectCountBuffer, updateIndirectCountBuffer, // [rlaw]: support for indirect count buffer
+            state.indirectCountBuffer, updateIndirectCountBuffer,
             pso->rootSignature);
         
         commitBarriers();
@@ -319,24 +319,14 @@ namespace nvrhi::d3d12
         m_ActiveCommandList->commandList6->DispatchMesh(groupsX, groupsY, groupsZ);
     }
 
-    // [rlaw] BEGIN
     void CommandList::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount)
     {
         Buffer* indirectParams = checked_cast<Buffer*>(m_CurrentMeshletState.indirectParams);
-        assert(indirectParams); // validation layer handles this
+        assert(indirectParams);
 
         updateGraphicsVolatileBuffers();
         
-        // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
-        ID3D12CommandSignature* signature;
-        if (m_CurrentMeshletState.pipeline->getDesc().useDrawIndex) {
-            signature = checked_cast<MeshletPipeline*>(m_CurrentMeshletState.pipeline)->rootSignature->dispatchMeshIndirectWithDrawIDSignature.Get();
-        } else {
-            signature = m_Context.dispatchMeshIndirectSignature.Get();
-        }
-        // [rlaw] END
-
-        m_ActiveCommandList->commandList->ExecuteIndirect(signature, maxDrawCount, indirectParams->resource, offsetBytes, nullptr, 0); // [rlaw]: use appropriate signature
+        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.dispatchMeshIndirectSignature, maxDrawCount, indirectParams->resource, offsetBytes, nullptr, 0);
     }
 
     void CommandList::dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount)
@@ -365,6 +355,4 @@ namespace nvrhi::d3d12
             countBuffer->resource,
             countOffsetBytes);
     }
-    // [rlaw] END
-
 } // namespace nvrhi::d3d12

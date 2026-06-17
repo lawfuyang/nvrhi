@@ -35,6 +35,8 @@ namespace nvrhi::vulkan
 
         BindingSet* bindingSet = checked_cast<BindingSet*>(_bindingSet);
 
+        ResourceStates const shaderResourceState = getShaderResourceStateForBindingLayout(bindingSet->layout);
+
         for (auto bindingIndex : bindingSet->bindingsThatNeedTransitions)
         {
             const BindingSetItem& binding = bindingSet->desc.bindings[bindingIndex];
@@ -50,8 +52,8 @@ namespace nvrhi::vulkan
                     auto* texture = checked_cast<Texture*>(binding.resourceHandle);
                     const FormatInfo& fmtInfo = getFormatInfo(texture->desc.format);
                     const ResourceStates srvState = (fmtInfo.hasDepth || fmtInfo.hasStencil)
-                        ? (ResourceStates::ShaderResource | ResourceStates::DepthRead)
-                        : ResourceStates::ShaderResource;
+                        ? (shaderResourceState | ResourceStates::DepthRead)
+                        : shaderResourceState;
                     requireTextureState(texture, binding.subresources, srvState);
                     break;
                 }
@@ -63,7 +65,7 @@ namespace nvrhi::vulkan
                 case ResourceType::TypedBuffer_SRV:
                 case ResourceType::StructuredBuffer_SRV:
                 case ResourceType::RawBuffer_SRV:
-                    requireBufferState(checked_cast<IBuffer*>(binding.resourceHandle), ResourceStates::ShaderResource);
+                    requireBufferState(checked_cast<IBuffer*>(binding.resourceHandle), shaderResourceState);
                     break;
 
                 case ResourceType::TypedBuffer_UAV:
@@ -175,13 +177,11 @@ namespace nvrhi::vulkan
             requireBufferState(state.indirectParams, ResourceStates::IndirectArgument);
         }
 
-        // [rlaw] BEGIN: added support for indirect count buffer
         if (state.indirectCountBuffer && (m_BindingStatesDirty || state.indirectCountBuffer != m_CurrentMeshletState.indirectCountBuffer))
         {
             requireBufferState(state.indirectCountBuffer, ResourceStates::IndirectArgument);
         }
-        // [rlaw] END: added support for indirect count buffer
-
+        
         m_BindingStatesDirty = false;
     }
 

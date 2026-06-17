@@ -951,7 +951,6 @@ namespace nvrhi::validation
         m_CommandList->dispatchMesh(groupsX, groupsY, groupsZ);
     }
 
-    // [rlaw] BEGIN
     void CommandListWrapper::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount)
     {
         if (!requireOpenState())
@@ -1011,7 +1010,6 @@ namespace nvrhi::validation
 
         m_CommandList->dispatchMeshIndirectCount(paramOffsetBytes, countOffsetBytes, maxDrawCount);
     }
-    // [rlaw] END
 
     void CommandListWrapper::beginTimerQuery(ITimerQuery* query)
     {

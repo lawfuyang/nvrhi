@@ -85,7 +85,7 @@ namespace nvrhi::d3d12
             return BufferHandle::Create(buffer);
         }
 
-        D3D12_RESOURCE_DESC& resourceDesc = buffer->resourceDesc;
+        D3D12_RESOURCE_DESC1& resourceDesc = buffer->resourceDesc;
         resourceDesc.Width = buffer->desc.byteSize;
         resourceDesc.Height = 1;
         resourceDesc.DepthOrArraySize = 1;
@@ -146,6 +146,11 @@ namespace nvrhi::d3d12
                 break;
         }
 
+        if (d.isAccelStructStorage)
+        {
+            resourceDesc.Flags |= D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE;
+        }
+
         // Allow readback buffers to be used as resolve destination targets
         if ((buffer->desc.cpuAccess == CpuAccessMode::Read) && (d.initialState == ResourceStates::ResolveDest))
         {
@@ -155,26 +160,17 @@ namespace nvrhi::d3d12
             initialState = D3D12_RESOURCE_STATE_COMMON;
         }
 
-    // [rlaw]: D3D12MA
-    #ifdef NVRHI_D3D12_WITH_D3D12MA
-
         HRESULT res;
-
-        const bool bIsResolveReadbackBuffer = ((buffer->desc.cpuAccess == CpuAccessMode::Read) && (d.initialState == ResourceStates::ResolveDest));
-        if (!bIsResolveReadbackBuffer)
+        if (m_EnhancedBarriersSupported)
         {
-            D3D12MA::ALLOCATION_DESC allocDesc{};
-            allocDesc.Flags = D3D12MA::ALLOCATION_FLAG_WITHIN_BUDGET;
-            allocDesc.HeapType = heapProps.Type;
-            allocDesc.ExtraHeapFlags = heapFlags;
-
-            assert(m_Allocator);
-            res = m_Allocator->CreateResource(
-                &allocDesc,
+            res = m_Context.device10->CreateCommittedResource3(
+                &heapProps,
+                heapFlags,
                 &resourceDesc,
-                convertResourceStates(d.initialState),
+                D3D12_BARRIER_LAYOUT_UNDEFINED,
                 nullptr,
-                &buffer->m_Allocation,
+                nullptr,
+                0, nullptr,
                 IID_PPV_ARGS(&buffer->resource));
         }
         else
@@ -182,21 +178,11 @@ namespace nvrhi::d3d12
             res = m_Context.device->CreateCommittedResource(
                 &heapProps,
                 heapFlags,
-                &resourceDesc,
+                reinterpret_cast<D3D12_RESOURCE_DESC*>(&resourceDesc), // layout of DESC matches the beginning of DESC1
                 initialState,
                 nullptr,
                 IID_PPV_ARGS(&buffer->resource));
         }
-
-    #else // NVRHI_D3D12_WITH_D3D12MA
-
-        HRESULT res = m_Context.device->CreateCommittedResource(
-            &heapProps,
-            heapFlags,
-            &resourceDesc,
-            initialState,
-            nullptr,
-            IID_PPV_ARGS(&buffer->resource));
 
     #endif // NVRHI_D3D12_WITH_D3D12MA
 
@@ -359,11 +345,25 @@ namespace nvrhi::d3d12
     {
         Buffer* buffer = checked_cast<Buffer*>(_buffer);
 
-        D3D12_RESOURCE_ALLOCATION_INFO allocInfo = m_Context.device->GetResourceAllocationInfo(1, 1, &buffer->resourceDesc);
+        MemoryRequirements memReq{};
 
-        MemoryRequirements memReq;
-        memReq.alignment = allocInfo.Alignment;
-        memReq.size = allocInfo.SizeInBytes;
+        if (m_EnhancedBarriersSupported)
+        {
+            D3D12_RESOURCE_ALLOCATION_INFO1 allocInfo{};
+            m_Context.device8->GetResourceAllocationInfo2(1, 1, &buffer->resourceDesc, &allocInfo);
+
+            memReq.alignment = allocInfo.Alignment;
+            memReq.size = allocInfo.SizeInBytes;
+        }
+        else
+        {
+            D3D12_RESOURCE_ALLOCATION_INFO allocInfo = m_Context.device->GetResourceAllocationInfo(
+                1, 1, reinterpret_cast<D3D12_RESOURCE_DESC*>(&buffer->resourceDesc));
+            
+            memReq.alignment = allocInfo.Alignment;
+            memReq.size = allocInfo.SizeInBytes;
+        }
+
         return memReq;
     }
 
@@ -378,16 +378,30 @@ namespace nvrhi::d3d12
         if (!buffer->desc.isVirtual)
             return false; // not supported
 
-        D3D12_RESOURCE_STATES initialState = convertResourceStates(buffer->desc.initialState);
-        if (initialState != D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE)
-            initialState = D3D12_RESOURCE_STATE_COMMON;
+        HRESULT hr;
+        if (m_EnhancedBarriersSupported)
+        {
+            hr = m_Context.device10->CreatePlacedResource2(
+                heap->heap, offset,
+                &buffer->resourceDesc,
+                D3D12_BARRIER_LAYOUT_UNDEFINED,
+                nullptr,
+                0, nullptr,
+                IID_PPV_ARGS(&buffer->resource));
+        }
+        else
+        {
+            D3D12_RESOURCE_STATES initialState = convertResourceStates(buffer->desc.initialState);
+            if (initialState != D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE)
+                initialState = D3D12_RESOURCE_STATE_COMMON;
 
-        HRESULT hr = m_Context.device->CreatePlacedResource(
-            heap->heap, offset,
-            &buffer->resourceDesc,
-            initialState,
-            nullptr,
-            IID_PPV_ARGS(&buffer->resource));
+            hr = m_Context.device->CreatePlacedResource(
+                heap->heap, offset,
+                reinterpret_cast<D3D12_RESOURCE_DESC*>(&buffer->resourceDesc),
+                initialState,
+                nullptr,
+                IID_PPV_ARGS(&buffer->resource));
+        }
 
         if (FAILED(hr))
         {

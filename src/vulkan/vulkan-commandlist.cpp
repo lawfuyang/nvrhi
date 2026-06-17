@@ -122,8 +122,7 @@ namespace nvrhi::vulkan
     void CommandList::executed(Queue& queue, const uint64_t submissionID)
     {
         assert(m_CurrentCmdBuf);
-
-        m_CurrentCmdBuf->submissionID = submissionID;
+        assert(m_CurrentCmdBuf->submissionID == submissionID); // This is set in Queue::submit
 
         const CommandQueue queueID = queue.getQueueID();
         const uint64_t recordingID = m_CurrentCmdBuf->recordingID;
@@ -147,7 +146,7 @@ namespace nvrhi::vulkan
  
     void CommandList::convertCoopVecMatrices(coopvec::ConvertMatrixLayoutDesc const* convertDescs, size_t numDescs)
     {
-        if (!m_Context.extensions.NV_cooperative_vector)
+        if (!m_Context.extensions.NV_cooperative_vector || !m_Context.coopVecFeatures.cooperativeVector)
             return;
 
         if (numDescs == 0)

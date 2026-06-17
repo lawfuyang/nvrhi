@@ -355,7 +355,6 @@ namespace nvrhi::vulkan
         m_CurrentCmdBuf->cmdBuf.drawMeshTasksEXT(groupsX, groupsY, groupsZ);
     }
 
-    // [rlaw] BEGIN
     void CommandList::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount)
     {
         assert(m_CurrentCmdBuf);
@@ -382,6 +381,5 @@ namespace nvrhi::vulkan
 
         m_CurrentCmdBuf->cmdBuf.drawMeshTasksIndirectCountEXT(indirectParams->buffer, paramOffsetBytes, indirectCount->buffer, countOffsetBytes, maxDrawCount, sizeof(DispatchIndirectArguments));
     }
-    // [rlaw] END
 
 } // namespace nvrhi::vulkan
