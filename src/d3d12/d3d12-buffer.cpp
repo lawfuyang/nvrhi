@@ -57,16 +57,6 @@ namespace nvrhi::d3d12
             m_Resources.shaderResourceViewHeap.releaseDescriptor(m_ClearUAV);
             m_ClearUAV = c_InvalidDescriptorIndex;
         }
-
-    // [rlaw] BEGIN
-    #ifdef NVRHI_D3D12_WITH_D3D12MA
-        if (m_Allocation)
-        {
-            m_Allocation->Release();
-            m_Allocation = nullptr;
-        }
-    #endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
-    // [rlaw] END
     }
 
     BufferHandle Device::createBuffer(const BufferDesc& d)
@@ -100,10 +90,7 @@ namespace nvrhi::d3d12
             resourceDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
         // [rlaw] BEGIN: Tight alignment support
-        if (m_TightAlignmentSupported && (resourceDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER) == 0)
-        {
-            resourceDesc.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
-        }
+        resourceDesc.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
         // [rlaw] END: Tight alignment support
 
         if (d.isVirtual)
@@ -184,8 +171,6 @@ namespace nvrhi::d3d12
                 IID_PPV_ARGS(&buffer->resource));
         }
 
-    #endif // NVRHI_D3D12_WITH_D3D12MA
-
         if (FAILED(res))
         {
             std::stringstream ss;
@@ -237,16 +222,6 @@ namespace nvrhi::d3d12
             GFSDK_Aftermath_ResourceHandle resourceHandle = {};
             GFSDK_Aftermath_DX12_RegisterResource(resource, &resourceHandle);
 #endif
-
-        // [rlaw] BEGIN
-        #ifdef NVRHI_D3D12_WITH_D3D12MA
-            if (m_Allocation)
-            {
-                m_Allocation->SetName(wname.c_str());
-            }
-        #endif
-        // [rlaw] END
-
         }
 
         if (m_Context.logBufferLifetime)

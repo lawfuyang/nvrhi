@@ -153,16 +153,6 @@ namespace nvrhi::d3d12
 
         for (auto pair : m_CustomUAVs)
             m_Resources.shaderResourceViewHeap.releaseDescriptor(pair.second);
-
-    // [rlaw] BEGIN
-    #ifdef NVRHI_D3D12_WITH_D3D12MA
-        if (m_Allocation)
-        {
-            m_Allocation->Release();
-            m_Allocation = nullptr;
-        }
-    #endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
-    // [rlaw] END
     }
 
     StagingTexture::SliceRegion StagingTexture::getSliceRegion(ID3D12Device *device, const TextureSlice& slice)
@@ -555,16 +545,6 @@ namespace nvrhi::d3d12
             GFSDK_Aftermath_ResourceHandle resourceHandle = {};
             GFSDK_Aftermath_DX12_RegisterResource(resource, &resourceHandle);
 #endif
-
-    // [rlaw] BEGIN
-    #ifdef NVRHI_D3D12_WITH_D3D12MA
-            if (m_Allocation)
-            {
-                m_Allocation->SetName(wname.c_str());
-            }
-    #endif
-    // [rlaw] END
-
         }
 
         if (desc.isUAV)
@@ -1038,15 +1018,6 @@ namespace nvrhi::d3d12
         ssName << "Sampler Feedback Texture: " << utils::DebugNameToString(descPair.debugName);
         texture->resource->SetName(ssName.str().c_str());
 
-    // [rlaw] BEGIN
-    #ifdef NVRHI_D3D12_WITH_D3D12MA
-        if (texture->m_Allocation)
-        {
-            texture->m_Allocation->SetName(ssName.str().c_str());
-        }
-    #endif
-    // [rlaw] END
-
         return SamplerFeedbackTextureHandle::Create(texture);
     }
 
@@ -1076,19 +1047,6 @@ namespace nvrhi::d3d12
 
         return SamplerFeedbackTextureHandle::Create(texture);
     }
-
-    // [rlaw] BEGIN
-    #ifdef NVRHI_D3D12_WITH_D3D12MA
-    SamplerFeedbackTexture::~SamplerFeedbackTexture()
-    {
-        if (m_Allocation)
-        {
-            m_Allocation->Release();
-            m_Allocation = nullptr;
-        }
-    }
-    #endif // #ifdef NVRHI_D3D12_WITH_D3D12MA
-    // [rlaw] END
 
 void SamplerFeedbackTexture::createUAV(size_t descriptor) const
     {

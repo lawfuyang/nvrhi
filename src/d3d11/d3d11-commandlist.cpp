@@ -247,22 +247,4 @@ namespace nvrhi::d3d11
     {
         utils::NotSupported();
     }
-
-    // [rlaw] BEGIN
-    void CommandList::dispatchMeshIndirect(uint32_t offsetBytes, uint32_t maxDrawCount)
-    {
-        (void)offsetBytes;
-        (void)maxDrawCount;
-        utils::NotSupported();
-    }
-
-    void CommandList::dispatchMeshIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount)
-    {
-        (void)paramOffsetBytes;
-        (void)countOffsetBytes;
-        (void)maxDrawCount;
-        utils::NotSupported();
-    }
-    // [rlaw] END
-
 } // namespace nvrhi::d3d11
