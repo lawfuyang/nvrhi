@@ -3687,11 +3687,13 @@ namespace nvrhi
         virtual void commitBarriers() = 0;
 
         // [rlaw]: BEGIN
-        // Inserts an aliasing barrier for a placed (virtual) resource that shares heap memory with other resources.
-        // On D3D12, it is added to the pending barriers list and emitted by commitBarriers().
-        // On Vulkan, it is added to the pending barriers list and emitted by commitBarriers().
+        // Issues a global synchronization barrier that ensures all prior GPU work is completed before any subsequent work begins.
+        // This is used to synchronize memory aliasing for placed (virtual) resources that share heap memory.
+        // On D3D12 with enhanced barriers, emits a D3D12_GLOBAL_BARRIER.
+        // On legacy D3D12, emits a UAV barrier (pResource = nullptr).
+        // On Vulkan, has no effect (Vulkan handles aliasing through implicit activation).
         // Has no effect on DX11.
-        virtual void insertAliasingBarrier(IResource* resource) = 0;
+        virtual void insertGlobalSyncBarrier() = 0;
         // [rlaw]: END
 
         // Returns the current tracked state of a texture subresource.

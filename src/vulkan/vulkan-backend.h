@@ -1349,7 +1349,7 @@ namespace nvrhi::vulkan
 
         void commitBarriers() override;
 
-        void insertAliasingBarrier(IResource* resource) override; // [rlaw]: support explicit aliasing barriers
+        void insertGlobalSyncBarrier() override; // [rlaw] support explicit global sync barriers
 
         ResourceStates getTextureSubresourceState(ITexture* texture, ArraySlice arraySlice, MipLevel mipLevel) override;
         ResourceStates getBufferState(IBuffer* buffer) override;
@@ -1371,7 +1371,6 @@ namespace nvrhi::vulkan
         CommandListParameters m_CommandListParameters;
 
         CommandListResourceStateTracker m_StateTracker;
-        bool m_AnyAliasingBarriersPending = false; // [rlaw]: support explicit aliasing barriers
         bool m_EnableAutomaticBarriers = true;
 
         // current internal command buffer

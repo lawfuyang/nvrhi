@@ -1145,37 +1145,13 @@ namespace nvrhi::validation
         m_CommandList->commitBarriers();
     }
 
-    // [rlaw] BEGIN: App-requested aliasing barriers
-    void CommandListWrapper::insertAliasingBarrier(IResource* resource)
+    // [rlaw] BEGIN: App-requested global sync barriers
+    void CommandListWrapper::insertGlobalSyncBarrier()
     {
         if (!requireOpenState())
             return;
 
-        if (resource)
-        {
-            bool isVirtual = false;
-            ITexture* texture = dynamic_cast<ITexture*>(resource);
-            if (texture)
-            {
-                isVirtual = texture->getDesc().isVirtual;
-            }
-            else
-            {
-                IBuffer* buffer = dynamic_cast<IBuffer*>(resource);
-                if (buffer)
-                {
-                    isVirtual = buffer->getDesc().isVirtual;
-                }
-            }
-
-            if (!isVirtual)
-            {
-                m_Device->error("insertAliasingBarrier called for a resource that is not virtual (placed). "
-                                 "Aliasing barriers are only valid for resources created with isVirtual = true.");
-            }
-        }
-
-        m_CommandList->insertAliasingBarrier(resource);
+        m_CommandList->insertGlobalSyncBarrier();
     }
     // [rlaw] END
 

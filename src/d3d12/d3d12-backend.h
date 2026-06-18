@@ -1133,7 +1133,7 @@ namespace nvrhi::d3d12
 
         void commitBarriers() override;
 
-        void insertAliasingBarrier(IResource* resource) override; // [rlaw] support explicit aliasing barriers
+        void insertGlobalSyncBarrier() override; // [rlaw] support explicit global sync barriers
 
         ResourceStates getTextureSubresourceState(ITexture* texture, ArraySlice arraySlice, MipLevel mipLevel) override;
         ResourceStates getBufferState(IBuffer* buffer) override;
@@ -1228,7 +1228,7 @@ namespace nvrhi::d3d12
         std::vector<D3D12_TEXTURE_BARRIER> m_D3DTextureBarriers;
         std::vector<D3D12_BUFFER_BARRIER> m_D3DBufferBarriers;
 
-        std::vector<ID3D12Resource*> m_PendingAliasingBarriers; // [rlaw] support explicit aliasing barriers
+        bool m_PendingGlobalSyncBarrier = false; // [rlaw] support explicit global sync barriers
 
         // Bound volatile buffer state. Saves currently bound volatile buffers and their current GPU VAs.
         // Necessary to patch the bound VAs when a buffer is updated between setGraphicsState and draw, or between draws.

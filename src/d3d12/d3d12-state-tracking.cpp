@@ -106,7 +106,7 @@ namespace nvrhi::d3d12
     {
         const auto& textureBarriers = m_StateTracker.getTextureBarriers();
         const auto& bufferBarriers = m_StateTracker.getBufferBarriers();
-        const size_t barrierCount = textureBarriers.size() + bufferBarriers.size() + m_PendingAliasingBarriers.size(); // [rlaw]: + pending aliasing barriers 
+        const size_t barrierCount = textureBarriers.size() + bufferBarriers.size() + (m_PendingGlobalSyncBarrier ? 1 : 0); // [rlaw]: + pending aliasing barriers 
         if (barrierCount == 0)
             return;
 
@@ -183,7 +183,57 @@ namespace nvrhi::d3d12
                 m_D3DBufferBarriers.push_back(d3dbarrier);
             }
 
-            static_vector<D3D12_BARRIER_GROUP, 2> barrierGroups;
+            // [rlaw] BEGIN: Debugging - insert texture/buffer barriers one by one to more easily identify problematic ones
+            const bool bDebugBarriers = false;
+            if constexpr (bDebugBarriers)
+            {
+                // Texture barriers one by one
+                for (const auto& barrier : m_D3DTextureBarriers)
+                {
+                    D3D12_BARRIER_GROUP textureGroup = {};
+                    textureGroup.Type = D3D12_BARRIER_TYPE_TEXTURE;
+                    textureGroup.NumBarriers = 1;
+                    textureGroup.pTextureBarriers = &barrier;
+
+                    m_ActiveCommandList->commandList7->Barrier(1, &textureGroup);
+                }
+                m_D3DTextureBarriers.clear();
+
+                // Buffer barriers one by one
+                for (const auto& barrier : m_D3DBufferBarriers)
+                {
+                    D3D12_BARRIER_GROUP bufferGroup = {};
+                    bufferGroup.Type = D3D12_BARRIER_TYPE_BUFFER;
+                    bufferGroup.NumBarriers = 1;
+                    bufferGroup.pBufferBarriers = &barrier;
+
+                    m_ActiveCommandList->commandList7->Barrier(1, &bufferGroup);
+                }
+                m_D3DBufferBarriers.clear();
+
+                m_PendingGlobalSyncBarrier = false;
+                m_StateTracker.clearBarriers();
+                return;
+            }
+            // [rlaw] END
+
+            static_vector<D3D12_BARRIER_GROUP, 3> barrierGroups;
+
+            // [rlaw] BEGIN: Global sync barrier goes first (before texture/buffer state transitions)
+            if (m_PendingGlobalSyncBarrier)
+            {
+                D3D12_GLOBAL_BARRIER globalBarrier = {};
+                globalBarrier.SyncBefore = D3D12_BARRIER_SYNC_ALL;
+                globalBarrier.SyncAfter  = D3D12_BARRIER_SYNC_ALL;
+                globalBarrier.AccessBefore = D3D12_BARRIER_ACCESS_COMMON;
+                globalBarrier.AccessAfter  = D3D12_BARRIER_ACCESS_COMMON;
+
+                D3D12_BARRIER_GROUP& barrierGroup = barrierGroups.emplace_back();
+                barrierGroup.Type = D3D12_BARRIER_TYPE_GLOBAL;
+                barrierGroup.NumBarriers = 1;
+                barrierGroup.pGlobalBarriers = &globalBarrier;
+            }
+            // [rlaw] END
 
             if (!m_D3DTextureBarriers.empty())
             {
@@ -203,6 +253,7 @@ namespace nvrhi::d3d12
             
             m_ActiveCommandList->commandList7->Barrier(uint32_t(barrierGroups.size()), barrierGroups.data());
 
+            m_PendingGlobalSyncBarrier = false;
             m_StateTracker.clearBarriers();
             return;
         }
@@ -211,31 +262,7 @@ namespace nvrhi::d3d12
         // For partial transitions on multi-plane textures, original barriers may translate
         // into more than 1 barrier each, but that's relatively rare.
         m_D3DBarriers.clear();
-        m_D3DBarriers.reserve(textureBarriers.size() + bufferBarriers.size() + m_PendingAliasingBarriers.size()); // [rlaw]: + pending aliasing barriers
-
-        // [rlaw] BEGIN: Insert pending aliasing barriers that were requested by the app
-        for (ID3D12Resource* pResource : m_PendingAliasingBarriers)
-        {
-            D3D12_RESOURCE_BARRIER d3dbarrier{};
-            d3dbarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
-            d3dbarrier.Aliasing.pResourceBefore = nullptr;
-            d3dbarrier.Aliasing.pResourceAfter = pResource;
-            m_D3DBarriers.push_back(d3dbarrier);
-        }
-        m_PendingAliasingBarriers.clear();
-        // [rlaw] END
-
-        // [rlaw] BEGIN: Debugging - insert barriers one by one to more easily identify problematic ones
-        const bool bDebugBarriers = false;
-        if constexpr (bDebugBarriers)
-        {
-            for (uint32_t i = 0; i < m_D3DBarriers.size(); i++)
-            {
-                m_ActiveCommandList->commandList->ResourceBarrier(1, &m_D3DBarriers[i]);
-            }
-            m_D3DBarriers.clear();
-        }
-        // [rlaw] END
+        m_D3DBarriers.reserve(textureBarriers.size() + bufferBarriers.size());
 
         // Convert the texture barriers into D3D equivalents
         for (const auto& barrier : textureBarriers)
@@ -284,17 +311,6 @@ namespace nvrhi::d3d12
             }
         }
 
-        // [rlaw] BEGIN: Debugging - insert barriers one by one to more easily identify problematic ones
-        if constexpr (bDebugBarriers)
-        {
-            for (uint32_t i = 0; i < m_D3DBarriers.size(); i++)
-            {
-                m_ActiveCommandList->commandList->ResourceBarrier(1, &m_D3DBarriers[i]);
-            }
-            m_D3DBarriers.clear();
-        }
-        // [rlaw] END
-
         // Convert the buffer barriers into D3D equivalents
         for (const auto& barrier : bufferBarriers)
         {
@@ -325,36 +341,16 @@ namespace nvrhi::d3d12
             }
         }
 
-        // [rlaw] BEGIN: Debugging - insert barriers one by one to more easily identify problematic ones
-        if constexpr (bDebugBarriers)
-        {
-            for (uint32_t i = 0; i < m_D3DBarriers.size(); i++)
-            {
-                m_ActiveCommandList->commandList->ResourceBarrier(1, &m_D3DBarriers[i]);
-            }
-            m_D3DBarriers.clear();
-        }
-        // [rlaw] END
-
         if (m_D3DBarriers.size() > 0)
             m_ActiveCommandList->commandList->ResourceBarrier(uint32_t(m_D3DBarriers.size()), m_D3DBarriers.data());
 
         m_StateTracker.clearBarriers();
     }
 
-    // [rlaw] BEGIN: App-requested aliasing barriers
-    void CommandList::insertAliasingBarrier(IResource* _resource)
+    // [rlaw] BEGIN: Global sync barrier for aliasing
+    void CommandList::insertGlobalSyncBarrier()
     {
-        if (!_resource) return;
-
-        ID3D12Resource* resource = nullptr;
-        if (Texture* texture = dynamic_cast<Texture*>(_resource))
-            resource = texture->resource;
-        else if (Buffer* buffer = dynamic_cast<Buffer*>(_resource))
-            resource = buffer->resource;
-
-        if (resource)
-            m_PendingAliasingBarriers.push_back(resource);
+        m_PendingGlobalSyncBarrier = true;
     }
     // [rlaw] END
 
