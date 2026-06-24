@@ -328,6 +328,10 @@ namespace nvrhi::vulkan
             VkBuffer dedicatedBuffer = nullptr) const;
         void freeMemory(MemoryResource* res) const;
 
+        // [rlaw] BEGIN: Heap upload — accessor for heapBuffer cleanup
+        const VulkanContext& getContext() const { return m_Context; }
+        // [rlaw] END
+
     private:
         const VulkanContext& m_Context;
     };
@@ -344,6 +348,10 @@ namespace nvrhi::vulkan
         HeapDesc desc;
         
         const HeapDesc& getDesc() override { return desc; }
+
+        // [rlaw] BEGIN: Tile streaming — lazy buffer for heap uploads
+        vk::Buffer heapBuffer = nullptr; // Created on first writeHeap() call; covers entire heap
+        // [rlaw] END
 
     private:
         VulkanAllocator& m_Allocator;

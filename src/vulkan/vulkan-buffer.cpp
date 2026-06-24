@@ -504,14 +504,89 @@ namespace nvrhi::vulkan
         }
     }
 
-    // [rlaw] BEGIN: Heap upload for tiled resource tile streaming (stub)
-    void CommandList::writeHeap(IHeap* heap, uint64_t heapOffset, const void* data, size_t dataSize)
+    // [rlaw] BEGIN: Heap upload for tiled resource tile streaming
+    void CommandList::writeHeap(IHeap* _heap, uint64_t heapOffset, const void* data, size_t dataSize)
     {
-        (void)heap;
-        (void)heapOffset;
-        (void)data;
-        (void)dataSize;
-        // Not supported on Vulkan — no-op stub
+        Heap* heap = checked_cast<Heap*>(_heap);
+
+        assert(m_CurrentCmdBuf);
+
+        // Lazily create a buffer covering the entire heap (needed because
+        // vkCmdCopyBuffer requires a buffer, not raw memory).
+        if (!heap->heapBuffer)
+        {
+            auto bufferInfo = vk::BufferCreateInfo()
+                .setSize(heap->desc.capacity)
+                .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc)
+                .setSharingMode(vk::SharingMode::eExclusive);
+
+            const vk::Result res = m_Context.device.createBuffer(&bufferInfo, m_Context.allocationCallbacks, &heap->heapBuffer);
+
+            if (res != vk::Result::eSuccess)
+            {
+                m_Context.error("writeHeap: Failed to create buffer covering heap");
+                return;
+            }
+
+            m_Context.device.bindBufferMemory(heap->heapBuffer, heap->memory, 0);
+        }
+
+        endRenderPass();
+
+        // Suballocate from upload buffer
+        Buffer* uploadBuffer;
+        uint64_t uploadOffset;
+        void* uploadCpuVA;
+        if (!m_UploadManager->suballocateBuffer(dataSize, &uploadBuffer, &uploadOffset, &uploadCpuVA,
+            MakeVersion(m_CurrentCmdBuf->recordingID, m_CommandListParameters.queueType, false)))
+        {
+            m_Context.error("writeHeap: Couldn't suballocate an upload buffer");
+            return;
+        }
+
+        memcpy(uploadCpuVA, data, dataSize);
+
+        m_CurrentCmdBuf->referencedStagingBuffers.push_back(uploadBuffer);
+
+        // Ensure the heap buffer region is ready for transfer writes
+        {
+            vk::BufferMemoryBarrier2 preBarrier = vk::BufferMemoryBarrier2()
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+                .setSrcAccessMask(vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eTransfer)
+                .setDstAccessMask(vk::AccessFlagBits2::eTransferWrite)
+                .setBuffer(heap->heapBuffer)
+                .setOffset(heapOffset)
+                .setSize(dataSize);
+
+            vk::DependencyInfo depInfo;
+            depInfo.setBufferMemoryBarriers(preBarrier);
+            m_CurrentCmdBuf->cmdBuf.pipelineBarrier2(depInfo);
+        }
+
+        // Copy from upload buffer to the heap buffer at the target heap offset
+        auto copyRegion = vk::BufferCopy()
+            .setSize(dataSize)
+            .setSrcOffset(uploadOffset)
+            .setDstOffset(heapOffset);
+
+        m_CurrentCmdBuf->cmdBuf.copyBuffer(uploadBuffer->buffer, heap->heapBuffer, { copyRegion });
+
+        // Make the writes available to subsequent operations on the heap memory
+        {
+            vk::BufferMemoryBarrier2 postBarrier = vk::BufferMemoryBarrier2()
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eTransfer)
+                .setSrcAccessMask(vk::AccessFlagBits2::eTransferWrite)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+                .setDstAccessMask(vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite)
+                .setBuffer(heap->heapBuffer)
+                .setOffset(heapOffset)
+                .setSize(dataSize);
+
+            vk::DependencyInfo depInfo;
+            depInfo.setBufferMemoryBarriers(postBarrier);
+            m_CurrentCmdBuf->cmdBuf.pipelineBarrier2(depInfo);
+        }
     }
     // [rlaw] END
 

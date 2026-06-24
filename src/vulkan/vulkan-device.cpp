@@ -828,6 +828,14 @@ namespace nvrhi::vulkan
 
     Heap::~Heap()
     {
+        // [rlaw] BEGIN: Tile streaming — destroy lazy heap buffer
+        if (heapBuffer)
+        {
+            m_Allocator.getContext().device.destroyBuffer(heapBuffer);
+            heapBuffer = nullptr;
+        }
+        // [rlaw] END
+
         if (memory && managed)
         {
             m_Allocator.freeMemory(this);
