@@ -504,6 +504,17 @@ namespace nvrhi::vulkan
         }
     }
 
+    // [rlaw] BEGIN: Heap upload for tiled resource tile streaming (stub)
+    void CommandList::writeHeap(IHeap* heap, uint64_t heapOffset, const void* data, size_t dataSize)
+    {
+        (void)heap;
+        (void)heapOffset;
+        (void)data;
+        (void)dataSize;
+        // Not supported on Vulkan — no-op stub
+    }
+    // [rlaw] END
+
     void CommandList::clearBufferUInt(IBuffer* b, uint32_t clearValue)
     {
         Buffer* buffer = checked_cast<Buffer*>(b);

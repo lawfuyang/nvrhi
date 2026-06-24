@@ -448,6 +448,16 @@ namespace nvrhi::validation
         m_CommandList->writeBuffer(b, data, dataSize, destOffsetBytes);
     }
 
+    // [rlaw] BEGIN: Heap upload for tiled resource tile streaming
+    void CommandListWrapper::writeHeap(IHeap* heap, uint64_t heapOffset, const void* data, size_t dataSize)
+    {
+        if (!requireOpenState())
+            return;
+
+        m_CommandList->writeHeap(heap, heapOffset, data, dataSize);
+    }
+    // [rlaw] END
+
     void CommandListWrapper::clearBufferUInt(IBuffer* b, uint32_t clearValue)
     {
         if (!requireOpenState())

@@ -180,6 +180,17 @@ namespace nvrhi::d3d11
         }
     }
 
+    // [rlaw] BEGIN: Heap upload for tiled resource tile streaming (stub)
+    void CommandList::writeHeap(IHeap* heap, uint64_t heapOffset, const void* data, size_t dataSize)
+    {
+        (void)heap;
+        (void)heapOffset;
+        (void)data;
+        (void)dataSize;
+        utils::NotSupported();
+    }
+    // [rlaw] END
+
     void CommandList::clearBufferUInt(IBuffer* buffer, uint32_t clearValue)
     {
         const BufferDesc& bufferDesc = buffer->getDesc();

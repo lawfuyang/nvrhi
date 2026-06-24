@@ -1290,6 +1290,9 @@ namespace nvrhi::vulkan
         // [rlaw] END
 
         void writeBuffer(IBuffer* b, const void* data, size_t dataSize, uint64_t destOffsetBytes = 0) override;
+        // [rlaw] BEGIN: Heap upload for tiled resource tile streaming (stub)
+        void writeHeap(IHeap* heap, uint64_t heapOffset, const void* data, size_t dataSize) override;
+        // [rlaw] END
         void clearBufferUInt(IBuffer* b, uint32_t clearValue) override;
         void copyBuffer(IBuffer* dest, uint64_t destOffsetBytes, IBuffer* src, uint64_t srcOffsetBytes, uint64_t dataSizeBytes) override;
 

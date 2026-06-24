@@ -286,6 +286,9 @@ namespace nvrhi::d3d12
     public:
         HeapDesc desc;
         RefCountPtr<ID3D12Heap> heap;
+        // [rlaw] BEGIN: Tile streaming — lazy placed buffer for heap uploads
+        RefCountPtr<ID3D12Resource> placedBuffer; // Created on first writeHeap() call; covers entire heap
+        // [rlaw] END
 
         const HeapDesc& getDesc() override { return desc; }
     };
@@ -1074,6 +1077,9 @@ namespace nvrhi::d3d12
         // [rlaw] END
 
         void writeBuffer(IBuffer* b, const void* data, size_t dataSize, uint64_t destOffsetBytes = 0) override;
+        // [rlaw] BEGIN: Heap upload for tiled resource tile streaming
+        void writeHeap(IHeap* heap, uint64_t heapOffset, const void* data, size_t dataSize) override;
+        // [rlaw] END
         void clearBufferUInt(IBuffer* b, uint32_t clearValue) override;
         void copyBuffer(IBuffer* dest, uint64_t destOffsetBytes, IBuffer* src, uint64_t srcOffsetBytes, uint64_t dataSizeBytes) override;
 

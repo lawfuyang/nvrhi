@@ -591,6 +591,67 @@ namespace nvrhi::d3d12
         }
     }
 
+    // [rlaw] BEGIN: Heap upload for tiled resource tile streaming
+    void CommandList::writeHeap(IHeap* _heap, uint64_t heapOffset, const void* data, size_t dataSize)
+    {
+        Heap* heap = checked_cast<Heap*>(_heap);
+
+        // Lazily create a placed buffer covering the entire heap (needed because
+        // CopyBufferRegion requires a resource, not a raw heap).
+        if (!heap->placedBuffer)
+        {
+            D3D12_RESOURCE_DESC bufferDesc = {};
+            bufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+            bufferDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+            bufferDesc.Width = heap->desc.capacity;
+            bufferDesc.Height = 1;
+            bufferDesc.DepthOrArraySize = 1;
+            bufferDesc.MipLevels = 1;
+            bufferDesc.Format = DXGI_FORMAT_UNKNOWN;
+            bufferDesc.SampleDesc.Count = 1;
+            bufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+            bufferDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+            HRESULT hr = m_Context.device->CreatePlacedResource(
+                heap->heap, 0, &bufferDesc,
+                D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+                IID_PPV_ARGS(&heap->placedBuffer));
+
+            if (FAILED(hr))
+            {
+                m_Context.error("writeHeap: CreatePlacedResource failed. The heap may not support buffer placement "
+                    "(e.g., Tier 1 heaps with ALLOW_ONLY_RT_DS_TEXTURES flag). Use Tier 2 heap flags or "
+                    "D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES.");
+                return;
+            }
+        }
+
+        // Suballocate from upload buffer
+        void* cpuVA;
+        ID3D12Resource* uploadBuffer;
+        size_t offsetInUploadBuffer;
+        if (!m_UploadManager.suballocateBuffer(dataSize, nullptr, &uploadBuffer, &offsetInUploadBuffer, &cpuVA, nullptr,
+            m_RecordingVersion, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
+        {
+            m_Context.error("writeHeap: Couldn't suballocate an upload buffer");
+            return;
+        }
+
+        memcpy(cpuVA, data, dataSize);
+
+        if (uploadBuffer != m_CurrentUploadBuffer)
+        {
+            m_Instance->referencedNativeResources.push_back(uploadBuffer);
+            m_CurrentUploadBuffer = uploadBuffer;
+        }
+
+        // Copy from upload buffer to the placed buffer at the target heap offset
+        m_ActiveCommandList->commandList->CopyBufferRegion(
+            heap->placedBuffer, heapOffset,
+            uploadBuffer, offsetInUploadBuffer, dataSize);
+    }
+    // [rlaw] END
+
     void CommandList::clearBufferUInt(IBuffer* _b, uint32_t clearValue)
     {
         Buffer* b = checked_cast<Buffer*>(_b);

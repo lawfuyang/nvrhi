@@ -3318,6 +3318,16 @@ namespace nvrhi
         //   vkCmdCopyBuffer.
         virtual void writeBuffer(IBuffer* b, const void* data, size_t dataSize, uint64_t destOffsetBytes = 0) = 0;
 
+        // [rlaw] BEGIN: Heap upload for tiled resource tile streaming
+        // Uploads 'dataSize' bytes of data from CPU memory into a heap at the specified 'heapOffset'.
+        // This is primarily used for tiled resource tile streaming, where individual 64KB tiles
+        // need to be uploaded to a tile pool heap at specific offsets.
+        // - D3D12: Suballocates from upload buffer, memcpy, then CopyBufferRegion to a buffer placed on the heap.
+        //   A placed buffer is created/cached lazily per heap.
+        // - D3D11, Vulkan: Not supported (stub — returns without error).
+        virtual void writeHeap(IHeap* heap, uint64_t heapOffset, const void* data, size_t dataSize) = 0;
+        // [rlaw] END
+
         // Fills the entire buffer using the provided uint32 value.
         // - DX11/12: Maps to ClearUnorderedAccessViewUint.
         // - Vulkan: Maps to vkCmdFillBuffer.
