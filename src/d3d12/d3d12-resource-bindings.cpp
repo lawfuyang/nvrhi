@@ -838,22 +838,30 @@ namespace nvrhi::d3d12
                 csDesc.pArgumentDescs = argDescs;
                 csDesc.NumArgumentDescs = 2;
 
-                argDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT;
-                argDescs[0].IncrementingConstant.RootParameterIndex = 0;
+                // The per-command job index is read out of the argument buffer and delivered as the
+                // b255 root constant. This replaces
+                // D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT, which needs a recent driver
+                // and is not understood by some capture tools (e.g. vanilla RenderDoc).
+                // The culling pass writes the index as the first 4 bytes of every command, so each
+                // stride below is 4 bytes larger than the raw draw/dispatch arguments.
+                argDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+                argDescs[0].Constant.RootParameterIndex = 0;
+                argDescs[0].Constant.DestOffsetIn32BitValues = 0;
+                argDescs[0].Constant.Num32BitValuesToSet = 1;
 
                 // Draw
                 argDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
-                csDesc.ByteStride = 16;
+                csDesc.ByteStride = 20;   // 4 (job index) + sizeof(D3D12_DRAW_ARGUMENTS)
                 m_Context.device->CreateCommandSignature(&csDesc, rootsig->handle.Get(), IID_PPV_ARGS(&rootsig->drawIndirectWithDrawIDSignature));
 
                 // DrawIndexed
                 argDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
-                csDesc.ByteStride = 20;
+                csDesc.ByteStride = 24;   // 4 + sizeof(D3D12_DRAW_INDEXED_ARGUMENTS)
                 m_Context.device->CreateCommandSignature(&csDesc, rootsig->handle.Get(), IID_PPV_ARGS(&rootsig->drawIndexedIndirectWithDrawIDSignature));
 
                 // DispatchMesh
                 argDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
-                csDesc.ByteStride = 12;
+                csDesc.ByteStride = 16;   // 4 + sizeof(D3D12_DISPATCH_MESH_ARGUMENTS)
                 m_Context.device->CreateCommandSignature(&csDesc, rootsig->handle.Get(), IID_PPV_ARGS(&rootsig->dispatchMeshIndirectWithDrawIDSignature));
             }
             // [rlaw] END: create command signatures tied to this root signature if using draw index
