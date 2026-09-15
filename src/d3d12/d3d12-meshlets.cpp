@@ -157,7 +157,7 @@ namespace nvrhi::d3d12
 
     MeshletPipelineHandle Device::createMeshletPipeline(const MeshletPipelineDesc& desc, FramebufferInfo const& fbinfo)
     {
-        RefCountPtr<RootSignature> pRS = getRootSignature(desc.bindingLayouts, false, desc.useDrawIndex); // [rlaw]: added 'desc.useDrawIndex'
+        RefCountPtr<RootSignature> pRS = getRootSignature(desc.bindingLayouts, false);
 
         RefCountPtr<ID3D12PipelineState> pPSO = createPipelineState(desc, pRS, fbinfo);
 
@@ -338,17 +338,8 @@ namespace nvrhi::d3d12
 
         updateGraphicsVolatileBuffers();
 
-        // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
-        ID3D12CommandSignature* signature;
-        if (m_CurrentMeshletState.pipeline->getDesc().useDrawIndex) {
-            signature = checked_cast<MeshletPipeline*>(m_CurrentMeshletState.pipeline)->rootSignature->dispatchMeshIndirectWithDrawIDSignature.Get();
-        } else {
-            signature = m_Context.dispatchMeshIndirectSignature.Get();
-        }
-        // [rlaw] END
-
         m_ActiveCommandList->commandList->ExecuteIndirect(
-            signature, // [rlaw]: use appropriate signature
+            m_Context.dispatchMeshIndirectSignature,
             maxDrawCount,
             paramBuffer->resource,
             paramOffsetBytes,

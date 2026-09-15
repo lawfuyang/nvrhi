@@ -182,7 +182,7 @@ namespace nvrhi::d3d12
 
     GraphicsPipelineHandle Device::createGraphicsPipeline(const GraphicsPipelineDesc& desc, FramebufferInfo const& fbinfo)
     {
-        RefCountPtr<RootSignature> pRS = getRootSignature(desc.bindingLayouts, desc.inputLayout != nullptr, desc.useDrawIndex); // [rlaw]: added 'desc.useDrawIndex'
+        RefCountPtr<RootSignature> pRS = getRootSignature(desc.bindingLayouts, desc.inputLayout != nullptr);
 
         RefCountPtr<ID3D12PipelineState> pPSO = createPipelineState(desc, pRS, fbinfo);
 
@@ -580,16 +580,7 @@ namespace nvrhi::d3d12
 
         updateGraphicsVolatileBuffers();
 
-        // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
-        ID3D12CommandSignature* signature;
-        if (m_CurrentGraphicsState.pipeline->getDesc().useDrawIndex) {
-            signature = checked_cast<GraphicsPipeline*>(m_CurrentGraphicsState.pipeline)->rootSignature->drawIndirectWithDrawIDSignature.Get();
-        } else {
-            signature = m_Context.drawIndirectSignature.Get();
-        }
-        // [rlaw] END
-
-        m_ActiveCommandList->commandList->ExecuteIndirect(signature, drawCount, indirectParams->resource, offsetBytes, nullptr, 0); // [rlaw]: use appropriate signature
+        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.drawIndirectSignature, drawCount, indirectParams->resource, offsetBytes, nullptr, 0);
     }
 
     void CommandList::drawIndexedIndirect(uint32_t offsetBytes, uint32_t drawCount)
@@ -599,16 +590,7 @@ namespace nvrhi::d3d12
 
         updateGraphicsVolatileBuffers();
 
-        // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
-        ID3D12CommandSignature* signature;
-        if (m_CurrentGraphicsState.pipeline->getDesc().useDrawIndex) {
-            signature = checked_cast<GraphicsPipeline*>(m_CurrentGraphicsState.pipeline)->rootSignature->drawIndexedIndirectWithDrawIDSignature.Get();
-        } else {
-            signature = m_Context.drawIndexedIndirectSignature.Get();
-        }
-        // [rlaw] END
-
-        m_ActiveCommandList->commandList->ExecuteIndirect(signature, drawCount, indirectParams->resource, offsetBytes, nullptr, 0); // [rlaw]: use appropriate signature
+        m_ActiveCommandList->commandList->ExecuteIndirect(m_Context.drawIndexedIndirectSignature, drawCount, indirectParams->resource, offsetBytes, nullptr, 0);
     }
 
     void CommandList::drawIndexedIndirectCount(uint32_t paramOffsetBytes, uint32_t countOffsetBytes, uint32_t maxDrawCount)
@@ -620,17 +602,8 @@ namespace nvrhi::d3d12
 
         updateGraphicsVolatileBuffers();
 
-        // [rlaw] BEGIN: use appropriate signature based on whether drawIndex is used
-        ID3D12CommandSignature* signature;
-        if (m_CurrentGraphicsState.pipeline->getDesc().useDrawIndex) {
-            signature = checked_cast<GraphicsPipeline*>(m_CurrentGraphicsState.pipeline)->rootSignature->drawIndexedIndirectWithDrawIDSignature.Get();
-        } else {
-            signature = m_Context.drawIndexedIndirectSignature.Get();
-        }
-        // [rlaw] END
-
         m_ActiveCommandList->commandList->ExecuteIndirect(
-            signature, // [rlaw]: use appropriate signature
+            m_Context.drawIndexedIndirectSignature,
             maxDrawCount,
             paramBuffer->resource,
             paramOffsetBytes,

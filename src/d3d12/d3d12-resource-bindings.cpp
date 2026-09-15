@@ -792,7 +792,7 @@ namespace nvrhi::d3d12
         return RootSignatureHandle::Create(rootsig);
     }
 
-    RefCountPtr<RootSignature> Device::getRootSignature(const static_vector<BindingLayoutHandle, c_MaxBindingLayouts>& pipelineLayouts, bool allowInputLayout, bool useDrawIndex) // [rlaw]: added useDrawIndex
+    RefCountPtr<RootSignature> Device::getRootSignature(const static_vector<BindingLayoutHandle, c_MaxBindingLayouts>& pipelineLayouts, bool allowInputLayout)
     {
         size_t hash = 0;
 
@@ -800,7 +800,6 @@ namespace nvrhi::d3d12
             hash_combine(hash, pipelineLayout.Get());
         
         hash_combine(hash, allowInputLayout ? 1u : 0u);
-        hash_combine(hash, useDrawIndex ? 1u : 0u); // [rlaw]: added useDrawIndex
         
         // Get a cached RS and AddRef it (if it exists)
         RefCountPtr<RootSignature> rootsig = m_Resources.rootsigCache[hash];
@@ -808,63 +807,8 @@ namespace nvrhi::d3d12
         if (!rootsig)
         {
             // Does not exist - build a new one, take ownership
-
-            // [rlaw] BEGIN: add custom parameter for draw index
-            D3D12_ROOT_PARAMETER1* customParameters = nullptr;
-            uint32_t numCustomParameters = 0;
-
-            D3D12_ROOT_PARAMETER1 drawIDParam = {};
-            drawIDParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-            drawIDParam.Constants.ShaderRegister = 255;
-            drawIDParam.Constants.RegisterSpace = 0;
-            drawIDParam.Constants.Num32BitValues = 1;
-            drawIDParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-            if (useDrawIndex)
-            {
-                customParameters = &drawIDParam;
-                numCustomParameters = 1;
-            }
-            // [rlaw] END: add custom parameter for draw index
-
-            rootsig = checked_cast<RootSignature*>(buildRootSignature(pipelineLayouts, allowInputLayout, false, customParameters, numCustomParameters).Get()); // [rlaw]: added customParameters, numCustomParameters
+            rootsig = checked_cast<RootSignature*>(buildRootSignature(pipelineLayouts, allowInputLayout, false).Get());
             rootsig->hash = hash;
-
-            // [rlaw] BEGIN: create command signatures tied to this root signature if using draw index
-            if (useDrawIndex)
-            {
-                D3D12_INDIRECT_ARGUMENT_DESC argDescs[2] = {};
-                D3D12_COMMAND_SIGNATURE_DESC csDesc = {};
-                csDesc.pArgumentDescs = argDescs;
-                csDesc.NumArgumentDescs = 2;
-
-                // The per-command job index is read out of the argument buffer and delivered as the
-                // b255 root constant. This replaces
-                // D3D12_INDIRECT_ARGUMENT_TYPE_INCREMENTING_CONSTANT, which needs a recent driver
-                // and is not understood by some capture tools (e.g. vanilla RenderDoc).
-                // The culling pass writes the index as the first 4 bytes of every command, so each
-                // stride below is 4 bytes larger than the raw draw/dispatch arguments.
-                argDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
-                argDescs[0].Constant.RootParameterIndex = 0;
-                argDescs[0].Constant.DestOffsetIn32BitValues = 0;
-                argDescs[0].Constant.Num32BitValuesToSet = 1;
-
-                // Draw
-                argDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
-                csDesc.ByteStride = 20;   // 4 (job index) + sizeof(D3D12_DRAW_ARGUMENTS)
-                m_Context.device->CreateCommandSignature(&csDesc, rootsig->handle.Get(), IID_PPV_ARGS(&rootsig->drawIndirectWithDrawIDSignature));
-
-                // DrawIndexed
-                argDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
-                csDesc.ByteStride = 24;   // 4 + sizeof(D3D12_DRAW_INDEXED_ARGUMENTS)
-                m_Context.device->CreateCommandSignature(&csDesc, rootsig->handle.Get(), IID_PPV_ARGS(&rootsig->drawIndexedIndirectWithDrawIDSignature));
-
-                // DispatchMesh
-                argDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
-                csDesc.ByteStride = 16;   // 4 + sizeof(D3D12_DISPATCH_MESH_ARGUMENTS)
-                m_Context.device->CreateCommandSignature(&csDesc, rootsig->handle.Get(), IID_PPV_ARGS(&rootsig->dispatchMeshIndirectWithDrawIDSignature));
-            }
-            // [rlaw] END: create command signatures tied to this root signature if using draw index
 
             m_Resources.rootsigCache[hash] = rootsig;
         }
