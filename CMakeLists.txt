@@ -39,6 +39,8 @@ option(NVRHI_WITH_VULKAN "Build the NVRHI Vulkan backend" ON)
 option(NVRHI_WITH_RTXMU "Use RTXMU for acceleration structure management" OFF)
 option(NVRHI_WITH_AFTERMATH "Include Aftermath support (requires NSight Aftermath SDK)" OFF)
 
+option(NVRHI_BUILD_D3D12_TESTS "Build the D3D12 test harness" OFF) # [rlaw]: unit tests
+
 cmake_dependent_option(NVRHI_WITH_NVAPI "Include NVAPI support (requires NVAPI SDK)" OFF "WIN32" OFF)
 cmake_dependent_option(NVRHI_WITH_DX11 "Build the NVRHI D3D11 backend" ON "WIN32" OFF)
 cmake_dependent_option(NVRHI_WITH_DX12 "Build the NVRHI D3D12 backend" ON "WIN32" OFF)
@@ -469,6 +471,16 @@ if(NVRHI_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+# [rlaw] BEGIN: unit tests
+if(NVRHI_BUILD_D3D12_TESTS)
+    if(NOT NVRHI_WITH_DX12)
+        message(FATAL_ERROR "NVRHI_BUILD_D3D12_TESTS requires NVRHI_WITH_DX12")
+    endif()
+    enable_testing()
+    add_subdirectory(tests/d3d12)
+endif()
+# [rlaw] END: unit tests
 
 if (NVRHI_INSTALL)
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/nvrhi
