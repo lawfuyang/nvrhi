@@ -28,6 +28,10 @@
 #define NVRHI_D3D12_WITH_NVAPI 0
 #endif
 
+#ifndef NVRHI_D3D12_WITH_DXRCLUSTER
+#define NVRHI_D3D12_WITH_DXRCLUSTER 0
+#endif
+
 #if NVRHI_D3D12_WITH_NVAPI
 #include <dxgi.h>
 #include <nvapi.h>
@@ -58,10 +62,15 @@
 #define NVRHI_WITH_NVAPI_DISPLACEMENT_MICROMAP (0)
 #endif
 
-#if NVRHI_D3D12_WITH_NVAPI && defined(NVAPI_GET_RAYTRACING_MULTI_INDIRECT_CLUSTER_OPERATION_REQUIREMENTS_INFO_PARAMS_VER)
-#define NVRHI_WITH_NVAPI_CLUSTERS (1)
-#else
-#define NVRHI_WITH_NVAPI_CLUSTERS (0)
+// Independent of NVRHI_D3D12_WITH_DXRCLUSTER: with both, the device picks one at runtime (see ClusterApi).
+#ifndef NVRHI_WITH_NVAPI_CLUSTERS
+    #if NVRHI_D3D12_WITH_NVAPI && defined(NVAPI_GET_RAYTRACING_MULTI_INDIRECT_CLUSTER_OPERATION_REQUIREMENTS_INFO_PARAMS_VER)
+        #define NVRHI_WITH_NVAPI_CLUSTERS (1)
+    #else
+        #define NVRHI_WITH_NVAPI_CLUSTERS (0)
+    #endif
+#elif NVRHI_WITH_NVAPI_CLUSTERS && !(NVRHI_D3D12_WITH_NVAPI && defined(NVAPI_GET_RAYTRACING_MULTI_INDIRECT_CLUSTER_OPERATION_REQUIREMENTS_INFO_PARAMS_VER))
+    #error "NVRHI_WITH_NVAPI_CLUSTERS needs NVAPI with the cluster operations"
 #endif
 
 // Line-Swept Spheres were added in NVAPI SDK 572.18
@@ -73,13 +82,15 @@
 
 // Preview 717 exposes cooperative-vector feature queries (D3D12_FEATURE_COOPERATIVE_VECTOR).
 // Preview 720+ uses the Linear Algebra feature tier and matrix-operation queries when DIRECT3D_LINEAR_ALGEBRA is defined.
-#if (D3D12_PREVIEW_SDK_VERSION == 717) || (defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 720)
+// The DXR cluster preview SDK (D3D12_PREVIEW_SDK_VERSION 722) renamed the linear-algebra
+// feature enums, so keep cooperative vectors out of that configuration until they are ported.
+#if !NVRHI_D3D12_WITH_DXRCLUSTER && ((D3D12_PREVIEW_SDK_VERSION == 717) || (defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 720))
 #define NVRHI_D3D12_WITH_COOP_VECTOR_COMMON (1)
 #else
 #define NVRHI_D3D12_WITH_COOP_VECTOR_COMMON (0)
 #endif
 
-#if defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 720
+#if !NVRHI_D3D12_WITH_DXRCLUSTER && defined(DIRECT3D_LINEAR_ALGEBRA) && D3D12_PREVIEW_SDK_VERSION >= 720
 #define NVRHI_D3D12_WITH_LINALG (1)
 #else
 #define NVRHI_D3D12_WITH_LINALG (0)
@@ -152,6 +163,9 @@ namespace nvrhi::d3d12
         RefCountPtr<ID3D12Device10> device10;
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
         RefCountPtr<ID3D12DevicePreview> devicePreview;
+#endif
+#if NVRHI_D3D12_WITH_DXRCLUSTER
+        RefCountPtr<ID3D12DeviceRaytracing2> deviceRaytracing2;
 #endif
 #ifdef NVRHI_WITH_RTXMU
         std::unique_ptr<rtxmu::DxAccelStructManager> rtxMemUtil;
@@ -316,12 +330,15 @@ namespace nvrhi::d3d12
         ~Texture() override;
 
         const TextureDesc& getDesc() const override { return desc; }
+        bool queryMemoryRequirements(MemoryRequirements&) override { utils::NotSupported(); return false; }
 
         Object getNativeObject(ObjectType objectType) override;
-        Object getNativeView(ObjectType objectType, Format format, TextureSubresourceSet subresources, TextureDimension dimension, bool isReadOnlyDSV = false) override;
+        Object getNativeView(ObjectType objectType, Format format, TextureSubresourceSet subresources, TextureDimension dimension, bool isReadOnlyDSV = false,
+            std::optional<ComponentMapping> overrideComponentMapping = std::nullopt) override;
 
         void postCreate();
-        void createSRV(size_t descriptor, Format format, TextureDimension dimension, TextureSubresourceSet subresources) const;
+        void createSRV(size_t descriptor, Format format, TextureDimension dimension, TextureSubresourceSet subresources,
+            ComponentMapping componentMapping) const;
         void createUAV(size_t descriptor, Format format, TextureDimension dimension, TextureSubresourceSet subresources) const;
         void createRTV(size_t descriptor, Format format, TextureSubresourceSet subresources) const;
         void createDSV(size_t descriptor, TextureSubresourceSet subresources, bool isReadOnly = false) const;
@@ -352,17 +369,20 @@ namespace nvrhi::d3d12
         uint64_t lastUseFenceValue = 0;
         HANDLE sharedHandle = nullptr;
 
-        Buffer(const Context& context, DeviceResources& resources, BufferDesc desc)
+        Buffer(const Context& context, DeviceResources& resources, BufferDesc desc, bool enhancedBarriersSupported)
             : BufferStateExtension(this->desc)
             , desc(std::move(desc))
             , m_Context(context)
             , m_Resources(resources)
+            , m_EnhancedBarriersSupported(enhancedBarriersSupported)
         { }
 
         ~Buffer() override;
         
         const BufferDesc& getDesc() const override { return desc; }
         GpuVirtualAddress getGpuVirtualAddress() const override { return gpuVA; }
+        bool queryMemoryRequirements(MemoryRequirements& outRequirements) override;
+        MemoryRequirements getMemoryRequirements() const;
 
         Object getNativeObject(ObjectType objectType) override;
 
@@ -378,6 +398,7 @@ namespace nvrhi::d3d12
         const Context& m_Context;
         DeviceResources& m_Resources;
         DescriptorIndex m_ClearUAV = c_InvalidDescriptorIndex;
+        const bool m_EnhancedBarriersSupported;
     };
 
     class StagingTexture : public RefCounter<IStagingTexture>
@@ -793,12 +814,15 @@ namespace nvrhi::d3d12
 
         void submitChunks(uint64_t currentVersion, uint64_t submittedVersion);
 
+        uint64_t getChunkBytes() const { return m_ChunkBytes; }
+
     private:
         const Context& m_Context;
         Queue* m_Queue;
         size_t m_DefaultChunkSize = 0;
         uint64_t m_MemoryLimit = 0;
-        uint64_t m_AllocatedMemory = 0;
+        uint64_t m_AllocatedMemory = 0; // TODO: This value currently has no effect.
+        uint64_t m_ChunkBytes = 0;
         bool m_IsScratchBuffer = false;
 
         std::list<std::shared_ptr<BufferChunk>> m_ChunkPool;
@@ -821,6 +845,7 @@ namespace nvrhi::d3d12
         Object getNativeObject(ObjectType objectType) override;
 
         const rt::OpacityMicromapDesc& getDesc() const override { return desc; }
+        bool queryMemoryRequirements(MemoryRequirements& outRequirements) override;
         bool isCompacted() const override { return compacted; }
         uint64_t getDeviceAddress() const override;
     };
@@ -850,6 +875,7 @@ namespace nvrhi::d3d12
         Object getNativeObject(ObjectType objectType) override;
 
         const rt::AccelStructDesc& getDesc() const override { return desc; }
+        bool queryMemoryRequirements(MemoryRequirements& outRequirements) override;
         bool isCompacted() const override { return compacted; }
         uint64_t getDeviceAddress() const override;
         
@@ -1003,6 +1029,9 @@ namespace nvrhi::d3d12
 #if NVRHI_D3D12_WITH_COOP_VECTOR_COMMON
         RefCountPtr<ID3D12GraphicsCommandListPreview> commandListPreview;
 #endif
+#if NVRHI_D3D12_WITH_DXRCLUSTER
+        RefCountPtr<ID3D12CommandListRaytracing2> commandListRaytracing2;
+#endif
         uint64_t lastSubmittedInstance = 0;
 #if NVRHI_WITH_AFTERMATH
         GFSDK_Aftermath_ContextHandle aftermathContext;
@@ -1140,6 +1169,7 @@ namespace nvrhi::d3d12
 
         nvrhi::IDevice* getDevice() override;
         const CommandListParameters& getDesc() override { return m_Desc; }
+        [[nodiscard]] CommandListMemoryUsage getInternalMemoryUsage() const override;
 
         // D3D12 specific methods
 
@@ -1249,6 +1279,22 @@ namespace nvrhi::d3d12
         std::shared_ptr<InternalCommandList> createInternalCommandList() const;
 
         void buildTopLevelAccelStructInternal(AccelStruct* as, D3D12_GPU_VIRTUAL_ADDRESS instanceData, size_t numInstances, rt::AccelStructBuildFlags buildFlags);
+
+#if NVRHI_WITH_NVAPI_CLUSTERS || NVRHI_D3D12_WITH_DXRCLUSTER
+        struct ClusterOperationAddresses
+        {
+            D3D12_GPU_VIRTUAL_ADDRESS scratch = 0;
+            D3D12_GPU_VIRTUAL_ADDRESS argCount = 0;
+            D3D12_GPU_VIRTUAL_ADDRESS results = 0;
+            D3D12_GPU_VIRTUAL_ADDRESS_AND_STRIDE args = {};
+            D3D12_GPU_VIRTUAL_ADDRESS_AND_STRIDE destinations = {};
+            D3D12_GPU_VIRTUAL_ADDRESS_AND_STRIDE sizes = {};
+        };
+
+        // Allocates scratch, transitions the buffers and resolves their addresses. Returns false if
+        // there is nothing to execute or the scratch allocation failed.
+        bool prepareClusterOperation(const rt::cluster::OperationDesc& desc, ClusterOperationAddresses& out);
+#endif
     };
 
     class Device final : public RefCounter<IDevice>
@@ -1285,6 +1331,8 @@ namespace nvrhi::d3d12
         void *mapBuffer(IBuffer* b, CpuAccessMode mapFlags) override;
         void unmapBuffer(IBuffer* b) override;
         MemoryRequirements getBufferMemoryRequirements(IBuffer* buffer) override;
+        bool queryTopLevelAccelStructPrebuildInfo(const rt::AccelStructDesc& desc,
+            uint32_t instanceCount, rt::AccelStructPrebuildInfo& outInfo) override;
         bool bindBufferMemory(IBuffer* buffer, IHeap* heap, uint64_t offset) override;
 
         BufferHandle createHandleForNativeBuffer(ObjectType objectType, Object buffer, const BufferDesc& desc) override;
@@ -1384,6 +1432,7 @@ namespace nvrhi::d3d12
         bool GetOpacityMicromapSupported() const { return m_OpacityMicromapSupported; }
         bool GetLinearSweptSpheresSupported( ) const { return m_LinearSweptSpheresSupported; }
         bool GetEnhancedBarriersSupported() const { return m_EnhancedBarriersSupported; }
+        ClusterApi GetClusterApi() const { return m_ClusterApi; }
 
     private:
         Context m_Context;
@@ -1403,7 +1452,8 @@ namespace nvrhi::d3d12
         bool m_MeshletsSupported = false;
         bool m_VariableRateShadingSupported = false;
         bool m_OpacityMicromapSupported = false;
-        bool m_RayTracingClustersSupported = false;
+        ClusterApi m_ClusterApi = ClusterApi::None;
+        bool m_RayTracingPositionFetchSupported = false;
         bool m_LinearSweptSpheresSupported = false;
         bool m_SpheresSupported = false;
         bool m_ShaderExecutionReorderingSupported = false;

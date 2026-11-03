@@ -1583,6 +1583,12 @@ namespace nvrhi::validation
             }
         }
 
+        if ((binding.overrideComponentMapping & c_ComponentMappingExplicit) && binding.type != ResourceType::Texture_SRV)
+        {
+            errorStream << "Component mappings are only supported on ResourceType::Texture_SRV bindings." << std::endl;
+            return false;
+        }
+
         switch (binding.type)
         {
         case ResourceType::None:
@@ -1981,6 +1987,12 @@ namespace nvrhi::validation
         return rt::AccelStructHandle::Create(wrapper);
     }
 
+    bool DeviceWrapper::queryTopLevelAccelStructPrebuildInfo(const rt::AccelStructDesc& desc,
+        uint32_t instanceCount, rt::AccelStructPrebuildInfo& outInfo)
+    {
+        return m_Device->queryTopLevelAccelStructPrebuildInfo(desc, instanceCount, outInfo);
+    }
+
     MemoryRequirements DeviceWrapper::getAccelStructMemoryRequirements(rt::IAccelStruct* as)
     {
         if (as == nullptr)
@@ -2047,25 +2059,44 @@ namespace nvrhi::validation
 
         if (validateClasParams)
         {
+            // The four-component formats other than R10G10B10A2 have no DXR cluster equivalent.
             nvrhi::Format vertexFormat = params.clas.vertexFormat;
             const bool validVertexFormat =
-                (vertexFormat == nvrhi::Format::RGBA32_FLOAT)
-                || (vertexFormat == nvrhi::Format::RGB32_FLOAT)
+                (vertexFormat == nvrhi::Format::RGB32_FLOAT)
                 || (vertexFormat == nvrhi::Format::RG32_FLOAT)
-                || (vertexFormat == nvrhi::Format::RGBA16_FLOAT)
                 || (vertexFormat == nvrhi::Format::RG16_FLOAT)
-                || (vertexFormat == nvrhi::Format::RGBA16_SNORM)
                 || (vertexFormat == nvrhi::Format::RG16_SNORM)
-                || (vertexFormat == nvrhi::Format::RGBA8_SNORM)
                 || (vertexFormat == nvrhi::Format::RG8_SNORM)
-                || (vertexFormat == nvrhi::Format::RGBA16_UNORM)
                 || (vertexFormat == nvrhi::Format::RG16_UNORM)
-                || (vertexFormat == nvrhi::Format::RGBA8_UNORM)
                 || (vertexFormat == nvrhi::Format::RG8_UNORM)
                 || (vertexFormat == nvrhi::Format::R10G10B10A2_UNORM);
             if (!validVertexFormat)
             {
                 error("cluster::OperationParams " + std::string(operationType) + " does not have a valid vertex format");
+                isValid = false;
+            }
+
+            switch (params.clas.indexFormat)
+            {
+            case rt::cluster::OperationIndexFormat::IndexFormat8bit:
+            case rt::cluster::OperationIndexFormat::IndexFormat16bit:
+            case rt::cluster::OperationIndexFormat::IndexFormat32bit:
+                break;
+            default:
+                error("cluster::OperationParams " + std::string(operationType) + " does not have a valid indexFormat");
+                isValid = false;
+                break;
+            }
+
+            if ((params.flags & rt::cluster::OperationFlags::AllowOMM) != 0 && params.clas.maxOpacityMicromapIndexCount == 0)
+            {
+                error("cluster::OperationParams " + std::string(operationType) + " sets AllowOMM but maxOpacityMicromapIndexCount is 0");
+                isValid = false;
+            }
+
+            if (params.clas.maxOpacityMicromapIndexCount > params.clas.maxTriangleCount)
+            {
+                error("cluster::OperationParams " + std::string(operationType) + " maxOpacityMicromapIndexCount over maxTriangleCount. Maximum 1 opacity micromap per triangle");
                 isValid = false;
             }
 

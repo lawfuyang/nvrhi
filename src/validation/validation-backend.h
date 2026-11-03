@@ -134,6 +134,10 @@ namespace nvrhi::validation
         // IResource
 
         Object getNativeObject(ObjectType objectType) override { return m_AccelStruct->getNativeObject(objectType); }
+        bool queryMemoryRequirements(MemoryRequirements& outRequirements) override
+        {
+            return m_AccelStruct->queryMemoryRequirements(outRequirements);
+        }
 
         // IAccelStruct
 
@@ -193,6 +197,11 @@ namespace nvrhi::validation
         Object getNativeObject(ObjectType objectType) override;
 
         // ICommandList implementation
+
+        // [rlaw] BEGIN: Pipeline Query Support
+        void beginPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override { assert(requireOpenState()); m_CommandList->beginPipelineStatisticsQuery(query); }
+        void endPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override { assert(requireOpenState()); m_CommandList->endPipelineStatisticsQuery(query); }
+        // [rlaw] END: Pipeline Query Support
 
         void open() override;
         void close() override;
@@ -290,10 +299,7 @@ namespace nvrhi::validation
         IDevice* getDevice() override;
         const CommandListParameters& getDesc() override;
 
-        // [rlaw] BEGIN: Pipeline Query Support
-        void beginPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override { assert(requireOpenState()); m_CommandList->beginPipelineStatisticsQuery(query); }
-        void endPipelineStatisticsQuery(IPipelineStatisticsQuery* query) override { assert(requireOpenState()); m_CommandList->endPipelineStatisticsQuery(query); }
-        // [rlaw] END: Pipeline Query Support
+        [[nodiscard]] CommandListMemoryUsage getInternalMemoryUsage() const override;
     };
 
     class DeviceWrapper : public RefCounter<IDevice>
@@ -347,6 +353,8 @@ namespace nvrhi::validation
         void *mapBuffer(IBuffer* b, CpuAccessMode mapFlags) override;
         void unmapBuffer(IBuffer* b) override;
         MemoryRequirements getBufferMemoryRequirements(IBuffer* buffer) override;
+        bool queryTopLevelAccelStructPrebuildInfo(const rt::AccelStructDesc& desc,
+            uint32_t instanceCount, rt::AccelStructPrebuildInfo& outInfo) override;
         bool bindBufferMemory(IBuffer* buffer, IHeap* heap, uint64_t offset) override;
 
         BufferHandle createHandleForNativeBuffer(ObjectType objectType, Object buffer, const BufferDesc& desc) override;

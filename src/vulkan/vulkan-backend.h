@@ -144,6 +144,7 @@ namespace nvrhi::vulkan
             bool buffer_device_address = false; // either KHR_ or Vulkan 1.2 versions
             bool KHR_ray_query = false;
             bool KHR_ray_tracing_pipeline = false;
+            bool KHR_ray_tracing_position_fetch = false;
             bool EXT_mesh_shader = false;
             bool KHR_fragment_shading_rate = false;
             bool EXT_conservative_rasterization = false;
@@ -176,6 +177,7 @@ namespace nvrhi::vulkan
         vk::PhysicalDeviceSubgroupProperties subgroupProperties;
         IMessageCallback* messageCallback = nullptr;
         bool logBufferLifetime = false;
+        bool descriptorBindingUniformBufferUpdateAfterBind = false;
 #ifdef NVRHI_WITH_RTXMU
         std::unique_ptr<rtxmu::VkAccelStructManager> rtxMemUtil;
         std::unique_ptr<RtxMuResources> rtxMuResources;
@@ -391,13 +393,15 @@ namespace nvrhi::vulkan
             StencilOnly
         };
 
-        typedef std::tuple<TextureSubresourceSet, TextureSubresourceViewType, TextureDimension, Format, vk::ImageUsageFlags> SubresourceViewKey;
+        // The packed ComponentMapping discriminates cache entries because 'usage' is
+        // zeroed for non-typeless textures before the key is built.
+        typedef std::tuple<TextureSubresourceSet, TextureSubresourceViewType, TextureDimension, Format, vk::ImageUsageFlags, uint16_t> SubresourceViewKey;
 
         struct Hash
         {
             std::size_t operator()(SubresourceViewKey const& s) const noexcept
             {
-                const auto& [subresources, viewType, dimension, format, usage] = s;
+                const auto& [subresources, viewType, dimension, format, usage, componentMapping] = s;
 
                 size_t hash = 0;
 
@@ -409,6 +413,7 @@ namespace nvrhi::vulkan
                 hash_combine(hash, dimension);
                 hash_combine(hash, format);
                 hash_combine(hash, uint32_t(usage));
+                hash_combine(hash, componentMapping);
 
                 return hash;
             }
@@ -440,15 +445,18 @@ namespace nvrhi::vulkan
         // 'viewtype' only matters when asking for a depth-stencil view; in situations where only depth or stencil can be bound
         // (such as an SRV with ImageLayout::eShaderReadOnlyOptimal), but not both, then this specifies which of the two aspect bits is to be set.
         TextureSubresourceView& getSubresourceView(const TextureSubresourceSet& subresources, TextureDimension dimension,
-            Format format, vk::ImageUsageFlags usage, TextureSubresourceViewType viewtype = TextureSubresourceViewType::AllAspects);
+            Format format, vk::ImageUsageFlags usage, TextureSubresourceViewType viewtype = TextureSubresourceViewType::AllAspects,
+            ComponentMapping componentMapping = ComponentMapping());
         
         uint32_t getNumSubresources() const;
         uint32_t getSubresourceIndex(uint32_t mipLevel, uint32_t arrayLayer) const;
 
         ~Texture() override;
         const TextureDesc& getDesc() const override { return desc; }
+        bool queryMemoryRequirements(MemoryRequirements&) override { utils::NotSupported(); return false; }
         Object getNativeObject(ObjectType objectType) override;
-        Object getNativeView(ObjectType objectType, Format format, TextureSubresourceSet subresources, TextureDimension dimension, bool isReadOnlyDSV = false) override;
+        Object getNativeView(ObjectType objectType, Format format, TextureSubresourceSet subresources, TextureDimension dimension, bool isReadOnlyDSV = false,
+            std::optional<ComponentMapping> overrideComponentMapping = std::nullopt) override;
 
     private:
         const VulkanContext& m_Context;
@@ -587,6 +595,8 @@ namespace nvrhi::vulkan
         ~Buffer() override;
         const BufferDesc& getDesc() const override { return desc; }
         GpuVirtualAddress getGpuVirtualAddress() const override { return deviceAddress; }
+        bool queryMemoryRequirements(MemoryRequirements& outRequirements) override;
+        MemoryRequirements getMemoryRequirements() const;
         Object getNativeObject(ObjectType type) override;
 
     private:
@@ -1043,11 +1053,14 @@ namespace nvrhi::vulkan
         bool suballocateBuffer(uint64_t size, Buffer** pBuffer, uint64_t* pOffset, void** pCpuVA, uint64_t currentVersion, uint32_t alignment = 256);
         void submitChunks(uint64_t currentVersion, uint64_t submittedVersion);
 
+        uint64_t getChunkBytes() const { return m_ChunkBytes; }
+
     private:
         Device* m_Device;
         uint64_t m_DefaultChunkSize = 0;
         uint64_t m_MemoryLimit = 0;
-        uint64_t m_AllocatedMemory = 0;
+        uint64_t m_AllocatedMemory = 0; // TODO: This value currently has no effect.
+        uint64_t m_ChunkBytes = 0;
         bool m_IsScratchBuffer = false;
 
         std::list<std::shared_ptr<BufferChunk>> m_ChunkPool;
@@ -1076,6 +1089,7 @@ namespace nvrhi::vulkan
 
         Object getNativeObject(ObjectType objectType) override;
         const rt::AccelStructDesc& getDesc() const override { return desc; }
+        bool queryMemoryRequirements(MemoryRequirements& outRequirements) override;
         bool isCompacted() const override { return compacted; }
         uint64_t getDeviceAddress() const override;
 
@@ -1099,6 +1113,7 @@ namespace nvrhi::vulkan
 
         Object getNativeObject(ObjectType objectType) override;
         const rt::OpacityMicromapDesc& getDesc() const override { return desc; }
+        bool queryMemoryRequirements(MemoryRequirements& outRequirements) override;
         bool isCompacted() const override { return compacted; }
         uint64_t getDeviceAddress() const override;
     };
@@ -1144,6 +1159,8 @@ namespace nvrhi::vulkan
         void *mapBuffer(IBuffer* b, CpuAccessMode mapFlags) override;
         void unmapBuffer(IBuffer* b) override;
         MemoryRequirements getBufferMemoryRequirements(IBuffer* buffer) override;
+        bool queryTopLevelAccelStructPrebuildInfo(const rt::AccelStructDesc& desc,
+            uint32_t instanceCount, rt::AccelStructPrebuildInfo& outInfo) override;
         bool bindBufferMemory(IBuffer* buffer, IHeap* heap, uint64_t offset) override;
 
         BufferHandle createHandleForNativeBuffer(ObjectType objectType, Object buffer, const BufferDesc& desc) override;
@@ -1367,6 +1384,7 @@ namespace nvrhi::vulkan
 
         IDevice* getDevice() override { return m_Device; }
         const CommandListParameters& getDesc() override { return m_CommandListParameters; }
+        [[nodiscard]] CommandListMemoryUsage getInternalMemoryUsage() const override;
 
         TrackedCommandBufferPtr getCurrentCmdBuf() const { return m_CurrentCmdBuf; }
 

@@ -30,6 +30,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(CMakeDependentOption)
 
 option(NVRHI_BUILD_SHARED "Build NVRHI as a shared library (DLL or .so)" OFF)
+option(NVRHI_BUILD_TESTS "Build focused backend memory query tests" OFF)
 option(NVRHI_INSTALL "Generate install rules for NVRHI" ON)
 cmake_dependent_option(NVRHI_INSTALL_EXPORTS "Install CMake exports" OFF "NVRHI_INSTALL" OFF)
 
@@ -51,6 +52,8 @@ endif()
 
 if(NVRHI_WITH_DX12)
     option(NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP "Use D3D12 native Opacity Micromaps from DXR 1.2" OFF)
+    option(NVRHI_D3D12_WITH_DXRCLUSTER "Add D3D12 native DXR cluster operations beside the NVAPI ones (requires the preview Agility SDK)" OFF)
+    set(NVRHI_D3D12_DXRCLUSTER_INCLUDE_DIR "" CACHE PATH "Include directory of the preview Agility SDK providing the DXR cluster headers")
     option(NVRHI_FETCH_DIRECTX_HEADERS "Fetch DirectX-Headers when building the D3D12 backend and no external targets are provided" ON)
     set(NVRHI_DIRECTX_HEADERS_GIT_REPOSITORY "https://github.com/microsoft/DirectX-Headers.git" CACHE STRING "DirectX-Headers git repository used by NVRHI_FETCH_DIRECTX_HEADERS")
     set(NVRHI_DIRECTX_HEADERS_GIT_TAG "v1.717.0-preview" CACHE STRING "DirectX-Headers git tag or commit used by NVRHI_FETCH_DIRECTX_HEADERS")
@@ -397,6 +400,15 @@ if (NVRHI_WITH_DX12)
 
     target_link_libraries(${nvrhi_d3d12_target} PUBLIC ${nvrhi_directx_headers_target} ${nvrhi_directx_guids_target} d3d12)
 
+    if (NVRHI_D3D12_WITH_DXRCLUSTER)
+        if (NOT NVRHI_D3D12_DXRCLUSTER_INCLUDE_DIR)
+            message(FATAL_ERROR "NVRHI_D3D12_WITH_DXRCLUSTER is ON: set NVRHI_D3D12_DXRCLUSTER_INCLUDE_DIR to the preview Agility SDK include directory")
+        endif()
+        # PUBLIC and BEFORE: consumers must resolve d3d12.h to the preview SDK too, or they
+        # disagree with this backend on the layout of the raytracing structs.
+        target_include_directories(${nvrhi_d3d12_target} BEFORE PUBLIC "${NVRHI_D3D12_DXRCLUSTER_INCLUDE_DIR}")
+    endif()
+
     if (NVRHI_WITH_NVAPI)
         target_link_libraries(${nvrhi_d3d12_target} PUBLIC nvapi)
     endif()
@@ -444,6 +456,19 @@ if (NVRHI_WITH_VULKAN)
     target_compile_definitions(${nvrhi_vulkan_target} PRIVATE NVRHI_WITH_AFTERMATH=$<BOOL:${NVRHI_WITH_AFTERMATH}>)
 endif()
 
+# NVRHI_D3D12_WITH_DXRCLUSTER selects the d3d12.h that nvrhi/d3d12.h includes, so every nvrhi
+# library and every consumer has to be compiled with the same value.
+set(_nvrhi_targets nvrhi ${nvrhi_d3d11_target} ${nvrhi_d3d12_target} ${nvrhi_vulkan_target})
+list(REMOVE_DUPLICATES _nvrhi_targets)
+foreach(_nvrhi_target IN LISTS _nvrhi_targets)
+    target_compile_definitions(${_nvrhi_target} PUBLIC NVRHI_D3D12_WITH_DXRCLUSTER=$<BOOL:${NVRHI_D3D12_WITH_DXRCLUSTER}>)
+endforeach()
+
+
+if(NVRHI_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
 if (NVRHI_INSTALL)
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/nvrhi
