@@ -147,8 +147,19 @@ namespace nvrhi::d3d12
             initialState = D3D12_RESOURCE_STATE_COMMON;
         }
 
+        // [rlaw] BEGIN: sampler feedback resolve destination state
+        // A buffer the CPU maps is never transitioned, so it has to be created in the only state it is used
+        // in. Only the legacy creation call can set that state, so this buffer takes that path even when
+        // enhanced barriers are enabled - a creation state is not a barrier API.
+        const bool isSamplerFeedbackResolveTarget =
+            (buffer->desc.cpuAccess == CpuAccessMode::Read) && (d.initialState == ResourceStates::ResolveDest);
+        if (isSamplerFeedbackResolveTarget)
+            initialState = D3D12_RESOURCE_STATE_RESOLVE_DEST;
+        const bool useEnhancedBarrierCreation = m_EnhancedBarriersSupported && !isSamplerFeedbackResolveTarget;
+        // [rlaw] END: sampler feedback resolve destination state
+
         HRESULT res;
-        if (m_EnhancedBarriersSupported)
+        if (useEnhancedBarrierCreation) // [rlaw]: resolve targets take the legacy path, see above
         {
             res = m_Context.device10->CreateCommittedResource3(
                 &heapProps,
