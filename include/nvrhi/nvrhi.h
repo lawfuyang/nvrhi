@@ -2693,6 +2693,14 @@ namespace nvrhi
 
         BindingLayoutVector bindingLayouts;
 
+        // [rlaw] BEGIN: ray-query opacity micromaps on pre-Shader-Model-6.9 compute shaders
+        // A compute shader compiled below SM 6.9 cannot declare RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS, so the
+        // pipeline opts in instead (d3d12-compute.cpp). Set it only on passes that trace rays against micromap
+        // geometry: the flag describes the pipeline's shaders, and the debug layer rejects a pipeline that claims
+        // it without needing it.
+        bool allowOpacityMicromaps = false;
+        // [rlaw] END: ray-query opacity micromaps
+
         ComputePipelineDesc& setComputeShader(IShader* value) { CS = value; return *this; }
         ComputePipelineDesc& addBindingLayout(IBindingLayout* layout) { bindingLayouts.push_back(layout); return *this; }
     };
