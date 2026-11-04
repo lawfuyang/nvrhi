@@ -51,6 +51,13 @@ namespace nvrhi::d3d12
         Shader* shader = checked_cast<Shader*>(state.CS.Get());
         desc.CS = { &shader->bytecode[0], shader->bytecode.size() };
 
+        // [rlaw] BEGIN: ray-query opacity micromaps
+        // Pre-SM6.9 shaders cannot name RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS, so the opt-in goes on the
+        // pipeline. Unused OMM support costs a little traversal speed, so it follows the device capability.
+        if (m_OpacityMicromapSupported)
+            desc.Flags |= NVRHI_RAYQUERY_OMM_PIPELINE_FLAG;
+        // [rlaw] END: ray-query opacity micromaps
+
 #if NVRHI_D3D12_WITH_NVAPI
         if (!shader->extensions.empty())
         {

@@ -62,6 +62,19 @@
 #define NVRHI_WITH_NVAPI_DISPLACEMENT_MICROMAP (0)
 #endif
 
+// [rlaw] BEGIN: ray-query opacity micromap opt-in for pre-Shader-Model-6.9 shaders
+// RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS is a Shader Model 6.9 template parameter, so a shader compiled for
+// an earlier model opts in per pipeline instead (DXR spec, "RayQuery flags on pre Shader Model 6.9
+// shaders"). The vendored DirectX-Headers predate that enum value, hence the literal.
+#if NVRHI_D3D12_WITH_DXR12_OPACITY_MICROMAP
+    static constexpr D3D12_PIPELINE_STATE_FLAGS c_RayQueryOmmPipelineFlag =
+        D3D12_PIPELINE_STATE_FLAGS(0x80); // D3D12_PIPELINE_STATE_FLAG_RAYQUERY_ALLOW_OPACITY_MICROMAPS_ON_PRE_SM69_SHADERS
+    #define NVRHI_RAYQUERY_OMM_PIPELINE_FLAG c_RayQueryOmmPipelineFlag
+#else
+    #define NVRHI_RAYQUERY_OMM_PIPELINE_FLAG D3D12_PIPELINE_STATE_FLAGS(0)
+#endif
+// [rlaw] END: ray-query opacity micromap opt-in
+
 // Independent of NVRHI_D3D12_WITH_DXRCLUSTER: with both, the device picks one at runtime (see ClusterApi).
 #ifndef NVRHI_WITH_NVAPI_CLUSTERS
     #if NVRHI_D3D12_WITH_NVAPI && defined(NVAPI_GET_RAYTRACING_MULTI_INDIRECT_CLUSTER_OPERATION_REQUIREMENTS_INFO_PARAMS_VER)
