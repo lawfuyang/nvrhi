@@ -53,8 +53,10 @@ namespace nvrhi::d3d12
 
         // [rlaw] BEGIN: ray-query opacity micromaps
         // Pre-SM6.9 shaders cannot name RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS, so the opt-in goes on the
-        // pipeline. Unused OMM support costs a little traversal speed, so it follows the device capability.
-        if (m_OpacityMicromapSupported)
+        // pipeline. It is only requested by the passes that actually trace rays against micromaps: the flag is a
+        // property of the pipeline's shaders, and setting it on a pipeline whose shaders never use a ray query
+        // is not harmless (the debug layer rejects the pipeline outright).
+        if (m_OpacityMicromapSupported && state.allowOpacityMicromaps)
             desc.Flags |= NVRHI_RAYQUERY_OMM_PIPELINE_FLAG;
         // [rlaw] END: ray-query opacity micromaps
 
