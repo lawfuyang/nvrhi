@@ -21,7 +21,18 @@
 */
 
 #include "d3d12-backend.h"
+// [rlaw] BEGIN: WinPixEventRuntime markers
+// The Windows SDK's pix.h routes beginMarker through ID3D12GraphicsCommandList::BeginEvent, which the PIX
+// capturer records without the runtime's event encoding. When the host project provides WinPixEventRuntime,
+// use its header instead so the markers nvrhi emits and the markers the application emits are the same
+// events, and so the capture can be driven by PIXBeginCapture2/PIXEndCapture. USE_PIX (defined alongside
+// this macro) is what turns pix3.h's inline no-ops into real calls.
+#if defined(NVRHI_WITH_WINPIX_EVENT_RUNTIME)
+#include <pix3.h>
+#else
 #include <pix.h>
+#endif
+// [rlaw] END
 #include <sstream>
 
 #include <nvrhi/common/misc.h>
@@ -185,7 +196,8 @@ namespace nvrhi::d3d12
 
     void CommandList::beginMarker(const char* name)
     {
-        PIXBeginEvent(m_ActiveCommandList->commandList, 0, name);
+        PIXBeginEvent(m_ActiveCommandList->commandList.Get(), 0, name); // [rlaw]: PIX
+
 #if NVRHI_WITH_AFTERMATH
         if (m_Device->isAftermathEnabled())
         {
@@ -197,7 +209,8 @@ namespace nvrhi::d3d12
 
     void CommandList::endMarker()
     {
-        PIXEndEvent(m_ActiveCommandList->commandList);
+        PIXEndEvent(m_ActiveCommandList->commandList.Get()); // [rlaw]: PIX
+        
 #if NVRHI_WITH_AFTERMATH
         if (m_Device->isAftermathEnabled())
             m_AftermathTracker.popEvent();
