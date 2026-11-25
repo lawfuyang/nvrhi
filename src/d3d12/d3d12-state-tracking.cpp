@@ -220,9 +220,13 @@ namespace nvrhi::d3d12
             static_vector<D3D12_BARRIER_GROUP, 3> barrierGroups;
 
             // [rlaw] BEGIN: Global sync barrier goes first (before texture/buffer state transitions)
+            // The barrier description must outlive the Barrier() call at the end of this scope: pGlobalBarriers is
+            // only a pointer, so keeping it inside the if-block handed the driver a dangling stack slot - it read
+            // whatever the next frames left there, which the debug layer reports as an INCOMPATIBLE_BARRIER_VALUES
+            // global barrier and the release driver faults on.
+            D3D12_GLOBAL_BARRIER globalBarrier = {};
             if (m_PendingGlobalSyncBarrier)
             {
-                D3D12_GLOBAL_BARRIER globalBarrier = {};
                 globalBarrier.SyncBefore = D3D12_BARRIER_SYNC_ALL;
                 globalBarrier.SyncAfter  = D3D12_BARRIER_SYNC_ALL;
                 globalBarrier.AccessBefore = D3D12_BARRIER_ACCESS_COMMON;
